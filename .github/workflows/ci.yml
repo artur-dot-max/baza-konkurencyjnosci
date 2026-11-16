@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bk_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d bk_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/bk_test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/bk_test
+      AUTH_SECRET: ci-only-secret-at-least-32-characters-long
+      AUTH_URL: http://127.0.0.1:3100
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3100
+      CONTACT_EMAIL: test@example.com
+      UPLOAD_DIR: ./uploads
+
+    steps:
+      - name: Pobierz kod
+        uses: actions/checkout@v4
+
+      - name: Skonfiguruj Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Zainstaluj zależności
+        run: npm ci
+
+      - name: Zastosuj migracje bazy
+        run: npm run db:deploy
+
+      - name: Sprawdź zależności
+        run: npm audit --audit-level=high
+
+      - name: Uruchom lint, typecheck i testy jednostkowe
+        run: npm run check
+
+      - name: Zbuduj aplikację bez dostępu do bazy
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee build.log
+          if grep -Eiq "prisma:error|P1001|Can't reach database server" build.log; then
+            echo "Build próbował połączyć się z bazą danych." >&2
+            exit 1
+          fi
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:1/build_must_not_use_db
+
+      - name: Zainstaluj Chromium dla Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Uruchom testy E2E
+        run: npm run test:e2e
+
+      - name: Zachowaj raport Playwright po błędzie
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,279 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 164 45% 16%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 164 45% 16%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 164 45% 16%;
+
+    --primary: 164 61% 20%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 145 25% 96%;
+    --secondary-foreground: 164 45% 16%;
+
+    --muted: 145 25% 96%;
+    --muted-foreground: 163 14% 35%;
+
+    --accent: 88 47% 70%;
+    --accent-foreground: 164 61% 16%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 153 18% 86%;
+    --input: 153 18% 86%;
+    --ring: 164 61% 20%;
+
+    --radius: 0.5rem;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 10pt;
+  }
+
+  header:not(.print-content-header),
+  footer:not(.print-footer),
+  .skip-link,
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    background: white !important;
+  }
+
+  .print-document {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .print-section,
+  .print-footer,
+  table,
+  tr {
+    break-inside: avoid;
+  }
+
+  .print-footer {
+    margin-top: 12mm !important;
+  }
+
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Focus visible styles for WCAG 2.1 AA */
+  *:focus-visible {
+    outline: 2px solid #145447;
+    outline-offset: 2px;
+  }
+
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid #145447;
+    outline-offset: 2px;
+  }
+
+  /* Skip to content link for accessibility */
+  .skip-link {
+    @apply absolute -top-10 left-0 z-50 bg-navy text-white px-4 py-2 transition-all;
+  }
+  .skip-link:focus {
+    @apply top-0;
+  }
+
+  /* Improve readability */
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* High contrast mode support */
+  @media (forced-colors: active) {
+    .badge {
+      border: 1px solid;
+    }
+  }
+
+  /* Respect reduced motion (WCAG 2.3.3) */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Accessibility toolbar: font size */
+  html {
+    font-size: 100%;
+  }
+  html.a11y-font-large {
+    font-size: 112.5%;
+  }
+  html.a11y-font-xlarge {
+    font-size: 125%;
+  }
+
+  /* Accessibility toolbar: high contrast (classic yellow-on-black) */
+  html.a11y-contrast {
+    color-scheme: dark;
+  }
+  html.a11y-contrast body,
+  html.a11y-contrast main {
+    background: #000 !important;
+    color: #fff !important;
+  }
+  html.a11y-contrast header,
+  html.a11y-contrast footer {
+    background: #000 !important;
+    color: #fff !important;
+    border-color: #fff !important;
+  }
+  html.a11y-contrast .bg-white,
+  html.a11y-contrast .bg-\[\#F1F5F2\],
+  html.a11y-contrast .bg-gray-50,
+  html.a11y-contrast .bg-\[\#E5F2ED\],
+  html.a11y-contrast [class*="shadow"] {
+    background-color: #000 !important;
+    color: #fff !important;
+    border-color: #fff !important;
+    box-shadow: none !important;
+  }
+  html.a11y-contrast h1,
+  html.a11y-contrast h2,
+  html.a11y-contrast h3,
+  html.a11y-contrast h4,
+  html.a11y-contrast p,
+  html.a11y-contrast li,
+  html.a11y-contrast td,
+  html.a11y-contrast th,
+  html.a11y-contrast label,
+  html.a11y-contrast span {
+    color: #fff !important;
+  }
+  html.a11y-contrast a {
+    color: #ffff00 !important;
+    text-decoration: underline !important;
+  }
+  html.a11y-contrast button,
+  html.a11y-contrast [role="button"],
+  html.a11y-contrast input,
+  html.a11y-contrast select,
+  html.a11y-contrast textarea {
+    background-color: #000 !important;
+    color: #fff !important;
+    border-color: #fff !important;
+  }
+  html.a11y-contrast *:focus-visible {
+    outline: 3px solid #ffff00 !important;
+    outline-offset: 2px !important;
+  }
+  html.a11y-contrast .skip-link {
+    background: #000 !important;
+    color: #ffff00 !important;
+    border: 2px solid #ffff00;
+  }
+  html.a11y-contrast .a11y-toolbar,
+  html.a11y-contrast .a11y-toolbar * {
+    color: #fff !important;
+  }
+  html.a11y-contrast .a11y-toolbar > div,
+  html.a11y-contrast .a11y-toolbar button {
+    background-color: #222 !important;
+    border-color: #fff !important;
+  }
+}
+
+@layer components {
+  .container-main {
+    @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .btn-primary {
+    @apply bg-navy text-white hover:bg-navy-700 focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2 rounded-md px-4 py-2 text-sm font-medium transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-navy border border-navy hover:bg-navy-50 focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2 rounded-md px-4 py-2 text-sm font-medium transition-colors;
+  }
+
+  .btn-danger {
+    @apply bg-accent-red text-white hover:bg-accent-red-dark focus-visible:ring-2 focus-visible:ring-accent-red focus-visible:ring-offset-2 rounded-md px-4 py-2 text-sm font-medium transition-colors;
+  }
+
+  .card-stat {
+    @apply bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow;
+  }
+
+  .status-badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .status-opublikowane {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .status-w-trakcie {
+    @apply bg-blue-100 text-blue-800;
+  }
+
+  .status-rozstrzygniete {
+    @apply bg-purple-100 text-purple-800;
+  }
+
+  .status-uniewaznione {
+    @apply bg-red-100 text-red-800;
+  }
+
+  .status-zakonczone {
+    @apply bg-gray-100 text-gray-800;
+  }
+
+  /* Rich text editor styles */
+  .tiptap-editor .ProseMirror {
+    @apply min-h-[200px] p-4 outline-none;
+  }
+
+  .tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
+    @apply text-gray-600 float-left h-0 pointer-events-none;
+    content: attr(data-placeholder);
+  }
+}

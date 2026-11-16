@@ -1,0 +1,3 @@
+export const PRODUCT_SYMBOL = "BKFS";
+export const PRODUCT_VERSION = "1.0.0";
+export const PRODUCT_RELEASE = `${PRODUCT_SYMBOL} ${PRODUCT_VERSION}`;

@@ -1,0 +1,71 @@
+# Zależności i cache narzędzi
+/node_modules/
+/.pnp/
+.pnp.js
+/.npm/
+
+# Next.js i artefakty kompilacji
+/.next/
+/.next-dev/
+/out/
+/build/
+/dist/
+*.tsbuildinfo
+
+# Testy i raporty
+/coverage/
+/playwright-report/
+/test-results/
+
+# Konfiguracja lokalna i sekrety
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Dane uruchomieniowe i administracyjne
+/.local/
+/uploads/
+/backups/
+/tmp/
+/output/
+
+# Logi, cache i pliki tymczasowe
+*.log
+*.cache
+*.tmp
+*.bak
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Standardowe artefakty binarne MS/Bitbucket
+*.obj
+*.exe
+*.pdb
+*.user
+*.aps
+*.pch
+*.vspscc
+*_i.c
+*_p.c
+*.ncb
+*.suo
+*.tlh
+*.dll
+*.lib
+*.sbr
+*.ilk
+
+# IDE i system operacyjny
+.DS_Store
+Thumbs.db
+/.idea/
+/.vscode/
+
+# Jednorazowy generator użyty przy tworzeniu prototypu; nie jest częścią produktu
+/generate_components.js
