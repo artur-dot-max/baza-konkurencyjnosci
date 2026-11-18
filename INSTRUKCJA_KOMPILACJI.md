@@ -67,6 +67,8 @@ Do zbudowania produktu wymagane są publiczne pakiety npm wyszczególnione w `pa
 
    Uzupełnić wyłącznie wartości właściwe dla izolowanego środowiska. Pliku `.env` nie wolno commitować.
 
+   Dla środowiska produkcyjnego obowiązkowo ustawić `MALWARE_SCAN_URL` oraz `MALWARE_SCAN_TOKEN`. Skaner przyjmuje zawartość pliku metodą `POST` i zwraca `204` dla pliku czystego albo `422` dla wykrytego zagrożenia. Brak skanera blokuje upload kodem `503`.
+
 ### 3.2. Kontrola źródeł
 
 ```powershell

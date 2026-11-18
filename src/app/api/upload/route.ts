@@ -5,16 +5,9 @@ import { auth } from "@/auth";
 import { randomUUID } from "crypto";
 import { mkdir, unlink, writeFile } from "fs/promises";
 import path from "path";
-import { MAX_FILE_SIZE } from "@/lib/utils";
 import { createUploadToken, verifyUploadToken } from "@/lib/upload-token";
 import { canWriteOrganization } from "@/lib/access";
-
-const allowedFiles: Record<string, string[]> = {
-  "application/pdf": [".pdf"],
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
-  "application/zip": [".zip"],
-};
+import { assertUploadRequestSize, UploadValidationError, validateUploadedFile } from "@/lib/file-validation";
 
 const uploadDirectory = path.resolve(process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads"));
 
@@ -31,18 +24,11 @@ export async function POST(request: Request) {
     }
 
     if (!(await checkRateLimit(`upload:${session.user.id}`, 30, 3600000)).success) return NextResponse.json({ error: "Limit przesyłania plików" }, { status: 429 });
+    assertUploadRequestSize(request);
     const formData = await request.formData();
     const file = formData.get("file");
     if (!(file instanceof File)) return NextResponse.json({ error: "Nie wybrano pliku" }, { status: 400 });
-    if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: "Plik przekracza limit 10 MB" }, { status: 400 });
-
-    const extension = path.extname(file.name).toLowerCase();
-    if (!allowedFiles[file.type]?.includes(extension)) {
-      return NextResponse.json({ error: "Niedozwolony typ pliku" }, { status: 400 });
-    }
-
-    const buffer = Buffer.from(await file.arrayBuffer());
-    if (!(extension === ".pdf" ? buffer.subarray(0, 5).toString() === "%PDF-" : buffer[0] === 0x50 && buffer[1] === 0x4b)) return NextResponse.json({ error: "Zawartość nie odpowiada typowi pliku" }, { status: 400 });
+    const { buffer, extension, mimeType } = await validateUploadedFile(file);
     const fileName = `${randomUUID()}${extension}`;
     const filePath = `/api/uploads/${fileName}`;
     await mkdir(uploadDirectory, { recursive: true });
@@ -51,7 +37,7 @@ export async function POST(request: Request) {
     const uploadedFile = {
       fileName,
       originalName: path.basename(file.name),
-      mimeType: file.type,
+      mimeType,
       fileSize: file.size,
       filePath,
     };
@@ -63,6 +49,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ file: { id, ...uploadedFile } }, { status: 201 });
   } catch (error) {
+    if (error instanceof UploadValidationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Upload failed:", error);
     return NextResponse.json({ error: "Nie udało się zapisać pliku" }, { status: 500 });
   }

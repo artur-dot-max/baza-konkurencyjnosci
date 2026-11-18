@@ -34,19 +34,16 @@ export async function processDeadlineReminders() {
 
     for (const item of kinds) {
       if (!item.match) continue;
-      const existing = await prisma.deadlineReminder.findUnique({
-        where: { announcementId_kind: { announcementId: ann.id, kind: item.kind } },
-      });
-      if (existing) continue;
-
       const panelLink = appUrl(`/panel/ogloszenia/${ann.id}`);
       const title = `Zbliża się termin ofert (${item.label})`;
       const body = `Termin składania ofert dla „${ann.title}" (${ann.procedureNumber}) upływa ${formatDate(ann.bidsDeadline)}.`;
 
       await prisma.$transaction(async (tx) => {
-        await tx.deadlineReminder.create({
-          data: { announcementId: ann.id, kind: item.kind },
+        const claimed = await tx.deadlineReminder.createMany({
+          data: [{ announcementId: ann.id, kind: item.kind }],
+          skipDuplicates: true,
         });
+        if (!claimed.count) return;
         await notifyOrganizationUsers(tx, ann.organizationId, {
           type: `DEADLINE_${item.kind.toUpperCase()}`,
           title,

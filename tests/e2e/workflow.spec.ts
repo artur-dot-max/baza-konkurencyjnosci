@@ -8,6 +8,7 @@ const password = "Integration123!";
 let admin: APIRequestContext;
 let owner: APIRequestContext;
 let other: APIRequestContext;
+let viewer: APIRequestContext;
 let organizationId: string;
 let otherOrgId: string;
 let announcementId: string;
@@ -32,11 +33,15 @@ test.describe.serial("Complete procurement workflow and security", () => {
   test.beforeAll(async () => {
     if (!new URL(process.env.DATABASE_URL!).pathname.endsWith("_test")) throw new Error("Unsafe test database");
     await db.emailOutbox.deleteMany(); await db.rateLimit.deleteMany(); await db.passwordReset.deleteMany();
-    await db.auditLog.deleteMany(); await db.announcement.deleteMany(); await db.news.deleteMany(); await db.user.deleteMany(); await db.organization.deleteMany();
+    await db.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe("SET LOCAL app.audit_maintenance = 'on'");
+      await tx.auditLog.deleteMany();
+    });
+    await db.announcement.deleteMany(); await db.news.deleteMany(); await db.user.deleteMany(); await db.organization.deleteMany();
     await db.user.create({ data: { email: "admin@example.test", password: await bcrypt.hash(password, 12), role: "ADMIN", name: "Administrator testowy" } });
     admin = await login("admin@example.test");
   });
-  test.afterAll(async () => { await Promise.all([admin?.dispose(), owner?.dispose(), other?.dispose()]); await db.$disconnect(); });
+  test.afterAll(async () => { await Promise.all([admin?.dispose(), owner?.dispose(), other?.dispose(), viewer?.dispose()]); await db.$disconnect(); });
 
   test("registration, activation, profile edits, safe user data and ownership", async ({ request }) => {
     const data = { organizationName: "Organizacja testowa", nip: "1234567890", regon: "123456789", address: "Testowa 10", city: "Warszawa", postalCode: "00-001", voivodeship: "mazowieckie", email: "owner@example.test", phone: "123456789", password, confirmPassword: password };
@@ -58,6 +63,27 @@ test.describe.serial("Complete procurement workflow and security", () => {
     expect((await other.put(`/api/organizations/${organizationId}`, { data: { name: "Cudza organizacja" } })).status()).toBe(403);
     const users = await admin.get("/api/users?page=invalid&limit=-1"); expect(users.ok()).toBeTruthy(); expect(await users.text()).not.toContain('"password"');
     expect(await (await admin.get("/api/auditlogs")).text()).not.toContain('"password"');
+  });
+
+  test("viewer can inspect the organization but cannot modify it", async ({ request }) => {
+    const invitedEmail = "viewer@example.test";
+    const invitation = await owner.post("/api/organization/invitations", {
+      data: { email: invitedEmail, role: "VIEWER" },
+    });
+    expect(invitation.status()).toBe(201);
+    const mail = await db.emailOutbox.findFirstOrThrow({
+      where: { to: invitedEmail, subject: { contains: "Zaproszenie do organizacji" } },
+      orderBy: { createdAt: "desc" },
+    });
+    const token = mail.text.match(/token=([a-f0-9]{64})/)?.[1];
+    expect(token).toBeTruthy();
+    const accepted = await request.post("/api/organization/invitations/accept", {
+      data: { token, name: "Obserwator testowy", password },
+    });
+    expect(accepted.status()).toBe(200);
+    viewer = await login(invitedEmail);
+    expect((await viewer.get(`/api/organizations/${organizationId}`)).status()).toBe(200);
+    expect((await viewer.put(`/api/organizations/${organizationId}`, { data: { city: "Zmiana niedozwolona" } })).status()).toBe(403);
   });
 
   test("draft confidentiality, protected attachment, atomic publication and editing", async ({ request, page }) => {
@@ -163,6 +189,20 @@ test.describe.serial("Complete procurement workflow and security", () => {
     const offers = await offersResponse.json();
     expect(offers).toHaveLength(1);
     expect(offers[0]).toMatchObject({ bidderName: "Wykonawca testowy sp. z o.o.", bidderEmail: "oferta@example.test", bidderNip: "9876543210" });
+
+    const duplicate = await request.post(`/api/announcements/${announcementId}/offers`, {
+      data: {
+        bidderName: "Próba ponownego złożenia",
+        bidderEmail: "OFERTA@example.test",
+        bidderNip: "9876543210",
+        price: "9999.00",
+        description: "Ta sama osoba nie może złożyć drugiej oferty.",
+        confirmation: true,
+        website: "",
+        attachmentIds: [],
+      },
+    });
+    expect(duplicate.status()).toBe(409);
 
     await page.context().addCookies((await owner.storageState()).cookies);
     await page.goto(`/panel/ogloszenia/${announcementId}/oferty`);

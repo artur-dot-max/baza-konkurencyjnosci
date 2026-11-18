@@ -8,6 +8,8 @@ import { appUrl } from "@/lib/mail";
 import { notifyOrganizationUsers } from "@/lib/notifications";
 import { publicQuestionSchema, redactQuestionAuthor } from "@/lib/moderation";
 
+class QuestionClosedError extends Error {}
+
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params; const session = await auth();
@@ -44,6 +46,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
 
     const question = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "announcements" WHERE "id" = ${id} FOR UPDATE`;
+      const current = await tx.announcement.findUnique({ where: { id } });
+      if (
+        !current ||
+        !isPublicAnnouncement(current) ||
+        !["PUBLISHED", "IN_PROGRESS"].includes(current.status) ||
+        !current.bidsDeadline ||
+        current.bidsDeadline <= new Date()
+      ) {
+        throw new QuestionClosedError("Termin zadawania pytań upłynął");
+      }
       const created = await tx.question.create({ data: { ...parsed.data, announcementId: id } });
       const recipients = new Set<string>([
         ann.organization.email,
@@ -72,9 +85,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         body: `Pytanie do „${ann.title}" (${ann.procedureNumber}): ${preview}`,
         href: `/panel/ogloszenia/${id}/pytania`,
       });
+      await tx.auditLog.create({ data: {
+        action: "ASK_QUESTION",
+        entity: "QUESTION",
+        entityId: created.id,
+        details: JSON.stringify({ announcementId: id }),
+      } });
       return created;
     });
 
     return NextResponse.json({ id: question.id }, { status: 201 });
-  } catch (error) { return apiError(error); }
+  } catch (error) {
+    if (error instanceof QuestionClosedError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    return apiError(error);
+  }
 }

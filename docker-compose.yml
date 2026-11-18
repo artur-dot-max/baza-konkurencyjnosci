@@ -11,6 +11,8 @@ services:
       - AUTH_SECRET=${AUTH_SECRET}
       - AUTH_URL=${AUTH_URL:-http://localhost:3000}
       - UPLOAD_DIR=/app/uploads
+      - MALWARE_SCAN_URL=${MALWARE_SCAN_URL}
+      - MALWARE_SCAN_TOKEN=${MALWARE_SCAN_TOKEN}
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_SECURE=${SMTP_SECURE:-false}

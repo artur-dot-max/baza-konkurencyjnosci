@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { ownsOrganization, safeUserSelect } from "@/lib/access";
+import { canWriteOrganization, ownsOrganization, safeUserSelect } from "@/lib/access";
 import { apiError } from "@/lib/api-error";
 import { appUrl } from "@/lib/mail";
 import { createNotificationsForUsers } from "@/lib/notifications";
@@ -29,7 +29,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   try {
     const session = await auth(); const { id } = await params;
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!ownsOrganization(session, id)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!canWriteOrganization(session, id)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const parsed = updateSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: "Nieprawidłowe dane organizacji" }, { status: 400 });
     if (parsed.data.status && session.user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });

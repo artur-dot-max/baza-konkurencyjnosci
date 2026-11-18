@@ -60,6 +60,7 @@ Konfigurację tworzy się przez skopiowanie `.env.example` do lokalnego, nieewid
 - `AUTH_URL` i `NEXT_PUBLIC_APP_URL` — publiczny adres HTTPS;
 - `SMTP_*`, `MAIL_FROM` i `CONTACT_EMAIL` — wysyłka poczty;
 - `UPLOAD_DIR` — trwały katalog załączników;
+- `MALWARE_SCAN_URL` i `MALWARE_SCAN_TOKEN` — wewnętrzny skaner plików; żądanie `POST` zwraca `204` dla pliku czystego i `422` dla zagrożenia;
 - `TRUST_PROXY=true` wyłącznie za zaufanym reverse proxy nadpisującym nagłówki klienta.
 
 Plików `.env`, kluczy, tokenów, certyfikatów prywatnych i danych produkcyjnych nie wolno dodawać do repozytorium.
@@ -74,6 +75,9 @@ docker compose ps
 ```
 
 Kontener `migrate` stosuje migracje przed uruchomieniem aplikacji. PostgreSQL nie publikuje portu na hoście. Dane bazy i załączniki są przechowywane w osobnych wolumenach. Stan aplikacji jest dostępny pod `/api/health`.
+
+W środowisku produkcyjnym upload działa w trybie fail-closed: brak odpowiedzi poprawnie skonfigurowanego skanera antymalware powoduje odrzucenie pliku kodem `503`. Archiwa ZIP oraz typy wykonywalne nie są przyjmowane.
+Reverse proxy musi dodatkowo odrzucać całe żądania większe niż limit uploadu powiększony o narzut `multipart/form-data`; zabezpiecza to pamięć procesu również przy transmisji bez nagłówka `Content-Length`.
 
 ## Kontrole jakości
 

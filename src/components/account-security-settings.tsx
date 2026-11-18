@@ -35,6 +35,7 @@ export function AccountSecuritySettings() {
   const [totpMessage, setTotpMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [setup, setSetup] = useState<{ secret: string; qrDataUrl: string } | null>(null);
   const [enableCode, setEnableCode] = useState("");
+  const [enablePassword, setEnablePassword] = useState("");
   const [enabling, setEnabling] = useState(false);
   const [setupLoading, setSetupLoading] = useState(false);
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
@@ -100,6 +101,7 @@ export function AccountSecuritySettings() {
       if (!res.ok) throw new Error(body.error || "Nie udało się rozpocząć konfiguracji");
       setSetup({ secret: body.secret, qrDataUrl: body.qrDataUrl });
       setEnableCode("");
+      setEnablePassword("");
     } catch (error) {
       setTotpMessage({
         type: "error",
@@ -117,11 +119,12 @@ export function AccountSecuritySettings() {
       const res = await fetch("/api/account/totp/enable", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: enableCode }),
+        body: JSON.stringify({ code: enableCode, password: enablePassword }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Nie udało się włączyć 2FA");
       setSetup(null);
+      setEnablePassword("");
       setBackupCodes(body.backupCodes);
       setTotpMessage({ type: "ok", text: body.message });
       await loadStatus();
@@ -227,8 +230,10 @@ export function AccountSecuritySettings() {
             <TotpSetupPanel
               setup={setup}
               code={enableCode}
+              password={enablePassword}
               enabling={enabling}
               onCodeChange={setEnableCode}
+              onPasswordChange={setEnablePassword}
               onConfirm={confirmTotp}
               onCancel={() => setSetup(null)}
               onCopySecret={copySecret}

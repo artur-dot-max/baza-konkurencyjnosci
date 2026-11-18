@@ -11,9 +11,11 @@ import {
   verifyTotpCode,
 } from "@/lib/totp";
 import { checkRateLimit } from "@/lib/rate-limit";
+import bcrypt from "bcryptjs";
 
 const enableSchema = z.object({
   code: z.string().regex(totpCodeSchema.regex, totpCodeSchema.message),
+  password: z.string().min(1, "Podaj aktualne hasło"),
 });
 
 export async function POST(request: Request) {
@@ -36,6 +38,10 @@ export async function POST(request: Request) {
     }
     if (user.totpEnabled) {
       return NextResponse.json({ error: "Uwierzytelnianie dwuetapowe jest już włączone" }, { status: 400 });
+    }
+
+    if (!await bcrypt.compare(parsed.data.password, user.password)) {
+      return NextResponse.json({ error: "Nieprawidłowe hasło" }, { status: 400 });
     }
 
     const secret = decryptTotpSecret(user.totpSecret);

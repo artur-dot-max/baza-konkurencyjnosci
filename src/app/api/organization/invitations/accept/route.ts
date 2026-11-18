@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     const password = await bcrypt.hash(parsed.data.password, 12);
     await prisma.$transaction(async (tx) => {
       const existing = await tx.user.findUnique({ where: { email: invite.email } });
+      let memberId: string;
       if (existing) {
         if (existing.organizationId && existing.organizationId !== invite.organizationId) {
           throw new Error("EMAIL_IN_USE");
@@ -46,8 +47,9 @@ export async function POST(request: Request) {
             sessionVersion: { increment: 1 },
           },
         });
+        memberId = existing.id;
       } else {
-        await tx.user.create({
+        const created = await tx.user.create({
           data: {
             email: invite.email,
             name: parsed.data.name,
@@ -58,11 +60,19 @@ export async function POST(request: Request) {
             isActive: true,
           },
         });
+        memberId = created.id;
       }
       await tx.organizationInvitation.update({
         where: { id: invite.id },
         data: { acceptedAt: new Date() },
       });
+      await tx.auditLog.create({ data: {
+        userId: memberId,
+        action: "ACCEPT_INVITATION",
+        entity: "ORGANIZATION_INVITATION",
+        entityId: invite.id,
+        details: JSON.stringify({ organizationId: invite.organizationId, role: invite.role }),
+      } });
     });
 
     return NextResponse.json({ message: "Dołączono do organizacji. Zaloguj się." });

@@ -167,6 +167,8 @@ model Offer {
   @@index([submittedAt])
   @@index([userId])
   @@index([bidderEmail])
+  @@unique([announcementId, bidderEmail])
+  @@unique([announcementId, userId])
   @@map("offers")
 }
 
@@ -174,7 +176,7 @@ model OfferAttachment {
   id           String   @id @default(cuid())
   offerId      String
   offer        Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
-  fileName     String
+  fileName     String   @unique
   originalName String
   mimeType     String
   fileSize     Int
@@ -321,9 +323,12 @@ model EmailOutbox {
   attempts    Int       @default(0)
   availableAt DateTime  @default(now())
   sentAt      DateTime?
+  failedAt    DateTime?
+  lastError   String?   @db.Text
   createdAt   DateTime  @default(now())
 
   @@index([sentAt, availableAt])
+  @@index([failedAt, availableAt])
   @@map("email_outbox")
 }
 

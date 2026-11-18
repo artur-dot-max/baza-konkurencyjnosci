@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ownsOrganization } from "@/lib/access";
 import { apiError } from "@/lib/api-error";
 import { formatDateTime } from "@/lib/utils";
+import { csvSafeCell } from "@/lib/offer-security";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -36,8 +37,7 @@ export async function GET(request: Request, { params }: Context) {
         (offer.description || "").replace(/\r?\n/g, " "),
         offer.attachments.map((a) => a.originalName).join("; "),
       ]);
-      const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
-      const csv = [header, ...rows].map((row) => row.map((cell) => escape(String(cell))).join(";")).join("\n");
+      const csv = [header, ...rows].map((row) => row.map(csvSafeCell).join(";")).join("\n");
       const filename = `oferty-${announcement.procedureNumber.replace(/[^a-zA-Z0-9_-]+/g, "-")}.csv`;
       return new NextResponse("\uFEFF" + csv, {
         headers: {

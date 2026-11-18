@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { createAuditLog } from "@/lib/audit";
 import { apiError } from "@/lib/api-error";
 import { newsInputSchema, newsStatus, newsWriteData, publicNewsWhere } from "@/lib/news";
 import type { Prisma } from "@prisma/client";
@@ -55,13 +54,16 @@ export async function POST(request: Request) {
     if (session?.user?.role !== "ADMIN") return NextResponse.json({ error: "Brak uprawnień" }, { status: 401 });
     const parsed = newsInputSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Nieprawidłowe dane" }, { status: 400 });
-    const item = await prisma.news.create({ data: newsWriteData(parsed.data) });
-    await createAuditLog({
-      userId: session.user.id,
-      action: "CREATE",
-      entity: "NEWS",
-      entityId: item.id,
-      details: JSON.stringify({ title: item.title, status: newsStatus(item) }),
+    const item = await prisma.$transaction(async (tx) => {
+      const created = await tx.news.create({ data: newsWriteData(parsed.data) });
+      await tx.auditLog.create({ data: {
+        userId: session.user.id,
+        action: "CREATE",
+        entity: "NEWS",
+        entityId: created.id,
+        details: JSON.stringify({ title: created.title, status: newsStatus(created) }),
+      } });
+      return created;
     });
     return NextResponse.json({ ...item, status: newsStatus(item) }, { status: 201 });
   } catch (error) {

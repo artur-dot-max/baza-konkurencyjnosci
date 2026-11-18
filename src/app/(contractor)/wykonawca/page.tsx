@@ -10,12 +10,7 @@ export default async function ContractorOffersPage() {
   if (!session?.user?.id) redirect("/logowanie");
 
   const offers = await prisma.offer.findMany({
-    where: {
-      OR: [
-        { userId: session.user.id },
-        ...(session.user.email ? [{ bidderEmail: session.user.email }] : []),
-      ],
-    },
+    where: { userId: session.user.id },
     orderBy: { submittedAt: "desc" },
     include: {
       announcement: { select: { id: true, title: true, procedureNumber: true, status: true } },
@@ -27,7 +22,7 @@ export default async function ContractorOffersPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#145447]">Panel wykonawcy</h1>
-        <p className="text-sm text-gray-600 mt-1">Historia ofert złożonych z Twojego konta lub adresu e-mail.</p>
+        <p className="text-sm text-gray-600 mt-1">Historia ofert złożonych po zalogowaniu na Twoje konto.</p>
       </div>
 
       <div className="space-y-4">

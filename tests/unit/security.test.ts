@@ -8,6 +8,7 @@ import { canReadAnnouncement, pagination } from "../../src/lib/access";
 import { sha256Checksum } from "../../src/lib/checksum";
 import { auditActionLabel, auditEntityLabel } from "../../src/lib/utils";
 import { isPlausibleIp, requestIp } from "../../src/lib/rate-limit";
+import { csvSafeCell, ownsOffer } from "../../src/lib/offer-security";
 
 test("upload signature prevents tampering, cross-user reuse, and expired uploads", () => {
   process.env.AUTH_SECRET = "unit-test-only-secret";
@@ -108,4 +109,34 @@ test("offer payload requires explicit confirmation because checkbox is not in Fo
   assert.equal(offerSchema.safeParse(buildOfferPayload(form, form.get("confirmation") === "on")).success, false);
   assert.equal(offerSchema.safeParse(buildOfferPayload(form, false)).success, false);
   assert.equal(offerSchema.safeParse(buildOfferPayload(form, true)).success, true);
+});
+
+test("CSV export neutralizes spreadsheet formulas and escapes quotes", () => {
+  assert.equal(csvSafeCell("=HYPERLINK(\"https://evil.test\")"), `"'=HYPERLINK(""https://evil.test"")"`);
+  assert.equal(csvSafeCell("  +1+1"), `"'  +1+1"`);
+  assert.equal(csvSafeCell("Zwykła wartość"), `"Zwykła wartość"`);
+});
+
+test("offer upload token is bound to its actor and purpose", () => {
+  process.env.AUTH_SECRET = "unit-test-only-secret";
+  const payload = {
+    userId: "guest:203.0.113.10",
+    fileName: "offer.pdf",
+    originalName: "offer.pdf",
+    mimeType: "application/pdf",
+    fileSize: 20,
+    filePath: "/api/uploads/offer.pdf",
+    expiresAt: Date.now() + 60_000,
+    purpose: "offer" as const,
+  };
+  const token = createUploadToken(payload);
+  assert.ok(verifyUploadToken(token, payload.userId, "offer"));
+  assert.equal(verifyUploadToken(token, "guest:203.0.113.11", "offer"), null);
+  assert.equal(verifyUploadToken(token, payload.userId, "announcement"), null);
+});
+
+test("offer ownership requires the account recorded at submission time", () => {
+  assert.equal(ownsOffer("contractor-1", "contractor-1"), true);
+  assert.equal(ownsOffer("attacker-with-same-email", "contractor-1"), false);
+  assert.equal(ownsOffer("new-account", null), false);
 });

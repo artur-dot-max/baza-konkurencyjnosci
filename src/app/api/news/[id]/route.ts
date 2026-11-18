@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-error";
-import { createAuditLog } from "@/lib/audit";
 import { newsInputSchema, newsStatus, newsWriteData } from "@/lib/news";
 
 type Context = { params: Promise<{ id: string }> };
@@ -33,13 +32,16 @@ export async function PUT(request: Request, { params }: Context) {
     if (!current) return NextResponse.json({ error: "Aktualność nie istnieje" }, { status: 404 });
     const parsed = newsInputSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Nieprawidłowe dane" }, { status: 400 });
-    const item = await prisma.news.update({ where: { id }, data: newsWriteData(parsed.data, current) });
-    await createAuditLog({
-      userId: session.user.id,
-      action: "UPDATE",
-      entity: "NEWS",
-      entityId: item.id,
-      details: JSON.stringify({ title: item.title, from: newsStatus(current), to: newsStatus(item) }),
+    const item = await prisma.$transaction(async (tx) => {
+      const updated = await tx.news.update({ where: { id, updatedAt: current.updatedAt }, data: newsWriteData(parsed.data, current) });
+      await tx.auditLog.create({ data: {
+        userId: session.user.id,
+        action: "UPDATE",
+        entity: "NEWS",
+        entityId: updated.id,
+        details: JSON.stringify({ title: updated.title, from: newsStatus(current), to: newsStatus(updated) }),
+      } });
+      return updated;
     });
     return NextResponse.json({ ...item, status: newsStatus(item) });
   } catch (error) {
@@ -54,13 +56,15 @@ export async function DELETE(_request: Request, { params }: Context) {
     const { id } = await params;
     const item = await prisma.news.findUnique({ where: { id } });
     if (!item) return NextResponse.json({ error: "Aktualność nie istnieje" }, { status: 404 });
-    await prisma.news.delete({ where: { id } });
-    await createAuditLog({
-      userId: session.user.id,
-      action: "DELETE",
-      entity: "NEWS",
-      entityId: id,
-      details: JSON.stringify({ title: item.title }),
+    await prisma.$transaction(async (tx) => {
+      await tx.news.delete({ where: { id } });
+      await tx.auditLog.create({ data: {
+        userId: session.user.id,
+        action: "DELETE",
+        entity: "NEWS",
+        entityId: id,
+        details: JSON.stringify({ title: item.title }),
+      } });
     });
     return new NextResponse(null, { status: 204 });
   } catch (error) {

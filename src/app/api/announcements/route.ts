@@ -4,7 +4,6 @@ import { apiError } from "@/lib/api-error";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { createAuditLog } from "@/lib/audit";
 import { z } from "zod";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
 import { sanitizeRichText } from "@/lib/sanitize";
@@ -66,6 +65,8 @@ export async function POST(request: Request) {
     if (!canWriteOrganization(session, session.user.organizationId)) {
       return NextResponse.json({ error: "Brak uprawnień do tworzenia ogłoszeń (rola: tylko podgląd)" }, { status: 403 });
     }
+    const userId = session.user.id;
+    const organizationId = session.user.organizationId;
 
     const ip = `announcement:${session.user.id}`;
     const rateLimit = await checkRateLimit(ip);
@@ -87,8 +88,8 @@ export async function POST(request: Request) {
     const fileNames = uploads.map(u => u!.fileName);
     if (new Set(fileNames).size !== fileNames.length || await prisma.attachment.count({ where: { fileName: { in: fileNames } } }))
       return NextResponse.json({ error: "Załącznik jest już przypisany" }, { status: 409 });
-    const announcement = await prisma.announcement.create({
-      data: {
+    const announcement = await prisma.$transaction(async (tx) => {
+      const created = await tx.announcement.create({ data: {
         procedureNumber: data.procedureNumber,
         title: data.title,
         orderType: data.orderType,
@@ -105,8 +106,8 @@ export async function POST(request: Request) {
         voivodeship: data.voivodeship,
         location: data.location,
         executionTerm: data.executionTerm,
-        organizationId: session.user.organizationId,
-        history: { create: { userId: session.user.id, action: data.status === "PUBLISHED" ? "PUBLISH" : "CREATE", details: "Utworzono ogłoszenie" } },
+        organizationId,
+        history: { create: { userId, action: data.status === "PUBLISHED" ? "PUBLISH" : "CREATE", details: "Utworzono ogłoszenie" } },
         criteria: { create: data.criteria },
         attachments: {
           create: uploads.map((upload) => ({
@@ -119,14 +120,17 @@ export async function POST(request: Request) {
         },
       },
       include: { criteria: true, attachments: true },
-    });
-
-    await createAuditLog({
-      userId: session.user.id,
-      action: "CREATE",
-      entity: "ANNOUNCEMENT",
-      entityId: announcement.id,
-      details: JSON.stringify({ status: announcement.status }),
+      });
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "CREATE",
+          entity: "ANNOUNCEMENT",
+          entityId: created.id,
+          details: JSON.stringify({ status: created.status }),
+        },
+      });
+      return created;
     });
 
     return NextResponse.json(announcement, { status: 201 });

@@ -4,7 +4,6 @@ import { apiError } from "@/lib/api-error";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { createAuditLog } from "@/lib/audit";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { SUBMISSION_METHODS } from "@/lib/utils";
 import { z } from "zod";
@@ -174,15 +173,17 @@ export async function PUT(
         },
       });
 
-      return updated;
-    });
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: deadlineExtended ? "EXTEND_DEADLINE" : "UPDATE",
+          entity: "ANNOUNCEMENT",
+          entityId: id,
+          details: JSON.stringify({ before: oldAnn, after: updated }),
+        },
+      });
 
-    await createAuditLog({
-      userId: session.user.id,
-      action: deadlineExtended ? "EXTEND_DEADLINE" : "UPDATE",
-      entity: "ANNOUNCEMENT",
-      entityId: id,
-      details: JSON.stringify({ before: oldAnn, after: ann }),
+      return updated;
     });
 
     return NextResponse.json(ann);
@@ -212,14 +213,15 @@ export async function DELETE(
       return NextResponse.json({ error: "Cannot delete non-draft announcement" }, { status: 400 });
     }
 
-    await prisma.announcement.delete({ where: { id } });
-
-    await createAuditLog({
-      userId: session.user.id,
-      action: "DELETE",
-      entity: "ANNOUNCEMENT",
-      entityId: id,
-      details: JSON.stringify(ann),
+    await prisma.$transaction(async (tx) => {
+      await tx.announcement.delete({ where: { id } });
+      await tx.auditLog.create({ data: {
+        userId: session.user.id,
+        action: "DELETE",
+        entity: "ANNOUNCEMENT",
+        entityId: id,
+        details: JSON.stringify(ann),
+      } });
     });
 
     return new NextResponse(null, { status: 204 });

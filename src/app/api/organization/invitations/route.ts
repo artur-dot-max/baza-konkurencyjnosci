@@ -30,6 +30,7 @@ export async function GET() {
       }),
       prisma.organizationInvitation.findMany({
         where: { organizationId: session.user.organizationId, acceptedAt: null, expiresAt: { gt: new Date() } },
+        select: { id: true, email: true, role: true, expiresAt: true, createdAt: true },
         orderBy: { createdAt: "desc" },
       }),
     ]);
@@ -62,11 +63,12 @@ export async function POST(request: Request) {
 
     const email = parsed.data.email.toLowerCase();
     const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser?.organizationId === session.user.organizationId) {
-      return NextResponse.json({ error: "Użytkownik już należy do organizacji" }, { status: 409 });
-    }
-    if (existingUser && existingUser.role !== "ORGANIZATION") {
-      return NextResponse.json({ error: "Ten adres e-mail jest używany przez inne konto" }, { status: 409 });
+    if (existingUser) {
+      return NextResponse.json({
+        error: existingUser.organizationId === session.user.organizationId
+          ? "Użytkownik już należy do organizacji"
+          : "Ten adres e-mail jest używany przez inne konto",
+      }, { status: 409 });
     }
 
     const token = randomBytes(32).toString("hex");
@@ -100,6 +102,13 @@ export async function POST(request: Request) {
           ].join("\n"),
         },
       });
+      await tx.auditLog.create({ data: {
+        userId: session.user.id,
+        action: "INVITE",
+        entity: "ORGANIZATION_INVITATION",
+        entityId: created.id,
+        details: JSON.stringify({ email, role: parsed.data.role }),
+      } });
       return created;
     });
 
@@ -119,12 +128,22 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Tylko właściciel może anulować zaproszenia" }, { status: 403 });
     }
     const { invitationId } = z.object({ invitationId: z.string().min(1) }).parse(await request.json());
-    await prisma.organizationInvitation.deleteMany({
-      where: {
-        id: invitationId,
-        organizationId: session.user.organizationId,
-        acceptedAt: null,
-      },
+    await prisma.$transaction(async (tx) => {
+      const removed = await tx.organizationInvitation.deleteMany({
+        where: {
+          id: invitationId,
+          organizationId: session.user.organizationId,
+          acceptedAt: null,
+        },
+      });
+      if (removed.count) {
+        await tx.auditLog.create({ data: {
+          userId: session.user.id,
+          action: "CANCEL_INVITATION",
+          entity: "ORGANIZATION_INVITATION",
+          entityId: invitationId,
+        } });
+      }
     });
     return NextResponse.json({ ok: true });
   } catch (error) {

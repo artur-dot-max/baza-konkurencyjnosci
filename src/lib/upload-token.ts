@@ -10,26 +10,22 @@ export interface UploadTokenPayload {
   expiresAt: number;
   purpose?: "announcement" | "offer";
 }
-
 function getSecret(): string {
   const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
   if (!secret) throw new Error("AUTH_SECRET is required for upload tokens");
   return secret;
 }
-
 function sign(value: string): string {
   return createHmac("sha256", getSecret()).update(value).digest("base64url");
 }
-
 export function createUploadToken(payload: UploadTokenPayload): string {
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
   return `${encoded}.${sign(encoded)}`;
 }
-
 export function verifyUploadToken(
   token: string,
   userId: string,
-  purpose?: UploadTokenPayload["purpose"]
+  purpose?: UploadTokenPayload["purpose"],
 ): UploadTokenPayload | null {
   const [encoded, signature, extra] = token.split(".");
   if (!encoded || !signature || extra) return null;
@@ -37,38 +33,25 @@ export function verifyUploadToken(
   const expected = sign(encoded);
   const actualBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expected);
-  if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) {
+  if (
+    actualBuffer.length !== expectedBuffer.length ||
+    !timingSafeEqual(actualBuffer, expectedBuffer)
+  ) {
     return null;
   }
 
   try {
-    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as UploadTokenPayload;
-    if (payload.userId !== userId || payload.expiresAt < Date.now()) return null;
-    if (purpose && payload.purpose && payload.purpose !== purpose) return null;
-    if (!payload.filePath.startsWith("/api/uploads/") || payload.fileName.includes("/") || payload.fileName.includes("\\")) {
+    const payload = JSON.parse(
+      Buffer.from(encoded, "base64url").toString("utf8"),
+    ) as UploadTokenPayload;
+    if (payload.userId !== userId || payload.expiresAt < Date.now())
       return null;
-    }
-    return payload;
-  } catch {
-    return null;
-  }
-}
-
-/** Verify an offer-upload token issued to a guest (userId prefixed with guest:). */
-export function verifyOfferUploadToken(token: string): UploadTokenPayload | null {
-  const [encoded, signature, extra] = token.split(".");
-  if (!encoded || !signature || extra) return null;
-  const expected = sign(encoded);
-  const actualBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expected);
-  if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) {
-    return null;
-  }
-  try {
-    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as UploadTokenPayload;
-    if (payload.expiresAt < Date.now()) return null;
-    if (payload.purpose !== "offer") return null;
-    if (!payload.filePath.startsWith("/api/uploads/") || payload.fileName.includes("/") || payload.fileName.includes("\\")) {
+    if (purpose && payload.purpose && payload.purpose !== purpose) return null;
+    if (
+      !payload.filePath.startsWith("/api/uploads/") ||
+      payload.fileName.includes("/") ||
+      payload.fileName.includes("\\")
+    ) {
       return null;
     }
     return payload;

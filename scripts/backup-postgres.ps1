@@ -4,10 +4,14 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+if ($RetentionDays -lt 1) {
+  throw "RetentionDays musi być liczbą dodatnią"
+}
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $backupRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $Destination))
 $allowedRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot "backups"))
-if (-not $backupRoot.StartsWith($allowedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+$allowedPrefix = $allowedRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+if ($backupRoot -ne $allowedRoot -and -not $backupRoot.StartsWith($allowedPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
   throw "Katalog kopii musi znajdować się wewnątrz $allowedRoot"
 }
 New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null

@@ -43,16 +43,26 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Nie możesz zmieniać własnego konta w ten sposób" }, { status: 409 });
     }
 
-    const updated = await prisma.user.update({
-      where: { id: member.id },
-      data: {
-        ...(parsed.data.orgRole && { orgRole: parsed.data.orgRole }),
-        ...(parsed.data.isActive !== undefined && {
-          isActive: parsed.data.isActive,
-          sessionVersion: { increment: 1 },
-        }),
-      },
-      select: { id: true, email: true, name: true, orgRole: true, isActive: true },
+    const updated = await prisma.$transaction(async (tx) => {
+      const changed = await tx.user.update({
+        where: { id: member.id },
+        data: {
+          ...(parsed.data.orgRole && { orgRole: parsed.data.orgRole }),
+          ...(parsed.data.isActive !== undefined && {
+            isActive: parsed.data.isActive,
+            sessionVersion: { increment: 1 },
+          }),
+        },
+        select: { id: true, email: true, name: true, orgRole: true, isActive: true },
+      });
+      await tx.auditLog.create({ data: {
+        userId: session.user.id,
+        action: "UPDATE_MEMBER",
+        entity: "USER",
+        entityId: member.id,
+        details: JSON.stringify({ orgRole: changed.orgRole, isActive: changed.isActive }),
+      } });
+      return changed;
     });
 
     return NextResponse.json(updated);

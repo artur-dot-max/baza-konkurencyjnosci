@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
+import { ownsOffer } from "@/lib/offer-security";
 
 const uploadDirectory = path.resolve(process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads"));
 
@@ -60,12 +61,7 @@ export async function GET(
 
   const { offer } = offerAttachment;
   const isOrgOwner = ownsOrganization(session, offer.announcement.organizationId);
-  const isOfferOwner =
-    !!session?.user?.id &&
-    (offer.userId === session.user.id ||
-      (session.user.role === "CONTRACTOR" &&
-        !!session.user.email &&
-        session.user.email.toLowerCase() === offer.bidderEmail.toLowerCase()));
+  const isOfferOwner = ownsOffer(session?.user?.id, offer.userId);
 
   if (!isOrgOwner && !isOfferOwner && session?.user?.role !== "ADMIN") {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -28,8 +28,9 @@ const nextAuth = NextAuth({
         const parsed = credentialsSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        const { email, password, totpCode } = parsed.data;
-        if (!(await checkRateLimit(`login:${email.toLowerCase()}`, 10, 900000)).success) return null;
+        const email = parsed.data.email.toLowerCase();
+        const { password, totpCode } = parsed.data;
+        if (!(await checkRateLimit(`login:${email}`, 10, 900000)).success) return null;
 
         const user = await prisma.user.findUnique({
           where: { email },
@@ -54,10 +55,11 @@ const nextAuth = NextAuth({
           if (!totpOk) {
             const remaining = await consumeBackupCode(user.totpBackupCodes, code);
             if (!remaining) return null;
-            await prisma.user.update({
-              where: { id: user.id },
+            const consumed = await prisma.user.updateMany({
+              where: { id: user.id, totpBackupCodes: { equals: user.totpBackupCodes } },
               data: { totpBackupCodes: remaining },
             });
+            if (consumed.count !== 1) return null;
           }
         }
 

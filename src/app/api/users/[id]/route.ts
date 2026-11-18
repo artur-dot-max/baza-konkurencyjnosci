@@ -3,7 +3,6 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { safeUserSelect } from "@/lib/access";
 import { z } from "zod";
-import { createAuditLog } from "@/lib/audit";
 
 export async function PUT(
   request: Request,
@@ -27,18 +26,20 @@ export async function PUT(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const user = await prisma.user.update({
-      where: { id },
-      data: { isActive, sessionVersion: { increment: 1 } },
-      select: safeUserSelect,
-    });
-
-    await createAuditLog({
-      userId: session.user.id,
-      action: "UPDATE",
-      entity: "USER",
-      entityId: id,
-      details: JSON.stringify({ isActive: user.isActive }),
+    const user = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id },
+        data: { isActive, sessionVersion: { increment: 1 } },
+        select: safeUserSelect,
+      });
+      await tx.auditLog.create({ data: {
+        userId: session.user.id,
+        action: "UPDATE",
+        entity: "USER",
+        entityId: id,
+        details: JSON.stringify({ isActive: updated.isActive }),
+      } });
+      return updated;
     });
 
     return NextResponse.json(user);

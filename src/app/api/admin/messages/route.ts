@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-error";
-import { createAuditLog } from "@/lib/audit";
 import { z } from "zod";
 
 const sendSchema = z.object({
@@ -99,15 +98,15 @@ export async function POST(request: Request) {
         })),
       });
 
-      return created;
-    });
+      await tx.auditLog.create({ data: {
+        userId: session.user.id,
+        action: "CREATE",
+        entity: "MESSAGE",
+        entityId: created.id,
+        details: JSON.stringify({ recipients: users.length, subject: parsed.data.subject }),
+      } });
 
-    await createAuditLog({
-      userId: session.user.id,
-      action: "CREATE",
-      entity: "MESSAGE",
-      entityId: message.id,
-      details: JSON.stringify({ recipients: users.length, subject: parsed.data.subject }),
+      return created;
     });
 
     return NextResponse.json(message, { status: 201 });

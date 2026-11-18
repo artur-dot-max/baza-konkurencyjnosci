@@ -4,7 +4,6 @@ import { apiError } from "@/lib/api-error";
 import { pagination, safeUserSelect } from "@/lib/access";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createAuditLog } from "@/lib/audit";
 import bcrypt from "bcryptjs";
 import { registerOrganizationSchema } from "@/lib/validators";
 
@@ -53,8 +52,8 @@ export async function POST(request: Request) {
 
     const hashedPassword = await bcrypt.hash(body.password, 12);
 
-    const organization = await prisma.organization.create({
-      data: {
+    const organization = await prisma.$transaction(async (tx) => {
+      const created = await tx.organization.create({ data: {
         name: body.organizationName,
         nip: body.nip,
         regon: body.regon,
@@ -63,12 +62,12 @@ export async function POST(request: Request) {
         city: body.city,
         postalCode: body.postalCode,
         voivodeship: body.voivodeship,
-        email: body.email,
+        email: body.email.toLowerCase(),
         phone: body.phone,
         status: "PENDING",
         users: {
           create: {
-            email: body.email,
+            email: body.email.toLowerCase(),
             password: hashedPassword,
             name: body.organizationName,
             role: "ORGANIZATION",
@@ -76,14 +75,15 @@ export async function POST(request: Request) {
         }
       },
       include: { users: { select: safeUserSelect } }
-    });
-
-    await createAuditLog({
-      userId: organization.users[0].id,
-      action: "CREATE",
-      entity: "ORGANIZATION",
-      entityId: organization.id,
-      details: JSON.stringify({ name: organization.name }),
+      });
+      await tx.auditLog.create({ data: {
+        userId: created.users[0].id,
+        action: "CREATE",
+        entity: "ORGANIZATION",
+        entityId: created.id,
+        details: JSON.stringify({ name: created.name }),
+      } });
+      return created;
     });
 
     return NextResponse.json(organization, { status: 201 });

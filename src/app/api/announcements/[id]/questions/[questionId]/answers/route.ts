@@ -7,6 +7,8 @@ import { apiError } from "@/lib/api-error";
 import { appUrl } from "@/lib/mail";
 import { createNotificationsForUsers } from "@/lib/notifications";
 
+class AnswerClosedError extends Error {}
+
 export async function POST(request: Request, { params }: { params: Promise<{ id: string; questionId: string }> }) {
   try {
     const session = await auth(); if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -20,8 +22,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const parsed = answerSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
     const answer = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "announcements" WHERE "id" = ${id} FOR UPDATE`;
+      const current = await tx.announcement.findUnique({ where: { id } });
+      if (!current || !["PUBLISHED", "IN_PROGRESS"].includes(current.status)) {
+        throw new AnswerClosedError("Postępowanie jest zamknięte");
+      }
       const created = await tx.answer.create({ data: { content: parsed.data.content, questionId } });
       await tx.announcementHistory.create({ data: { announcementId: id, userId: session.user.id, action: "ANSWER_QUESTION", details: "Udzielono odpowiedzi na pytanie" } });
+      await tx.auditLog.create({ data: {
+        userId: session.user.id,
+        action: "ANSWER_QUESTION",
+        entity: "ANSWER",
+        entityId: created.id,
+        details: JSON.stringify({ announcementId: id, questionId }),
+      } });
       if (question.authorEmail) {
         const publicLink = appUrl(`/ogloszenia/${id}`);
         const preview = parsed.data.content.length > 280
@@ -60,5 +74,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return created;
     });
     return NextResponse.json(answer, { status: 201 });
-  } catch (error) { return apiError(error); }
+  } catch (error) {
+    if (error instanceof AnswerClosedError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    return apiError(error);
+  }
 }

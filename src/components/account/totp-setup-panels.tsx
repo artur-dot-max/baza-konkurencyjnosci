@@ -9,8 +9,10 @@ import { Label } from "@/components/ui/label";
 type TotpSetupPanelProps = {
   setup: { secret: string; qrDataUrl: string };
   code: string;
+  password: string;
   enabling: boolean;
   onCodeChange: (code: string) => void;
+  onPasswordChange: (password: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
   onCopySecret: () => void;
@@ -19,8 +21,10 @@ type TotpSetupPanelProps = {
 export function TotpSetupPanel({
   setup,
   code,
+  password,
   enabling,
   onCodeChange,
+  onPasswordChange,
   onConfirm,
   onCancel,
   onCopySecret,
@@ -42,6 +46,17 @@ export function TotpSetupPanel({
           className="rounded-md border bg-white"
         />
         <div className="w-full flex-1 space-y-3">
+          <div>
+            <Label htmlFor="enablePassword">Aktualne hasło</Label>
+            <Input
+              id="enablePassword"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => onPasswordChange(event.target.value)}
+              className="mt-1"
+            />
+          </div>
           <div>
             <Label>Klucz tajny (wpis ręczny)</Label>
             <div className="mt-1 flex gap-2">
@@ -65,7 +80,7 @@ export function TotpSetupPanel({
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={onConfirm} disabled={enabling || code.length !== 6} className="bg-[#145447] hover:bg-[#0D4036]">
+            <Button onClick={onConfirm} disabled={enabling || code.length !== 6 || !password} className="bg-[#145447] hover:bg-[#0D4036]">
               {enabling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Potwierdź i włącz
             </Button>

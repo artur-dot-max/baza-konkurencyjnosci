@@ -6,13 +6,14 @@ Każda modyfikacja kodu, konfiguracji, schematu bazy danych, testów lub dokumen
 
 ## Stan projektu po audycie
 
-- Data audytu: 2026-11-06.
+- Data ostatniego audytu: 2026-11-18.
 - Aplikacja: Next.js 15, React 19, TypeScript, Prisma i PostgreSQL.
 - Zakres funkcjonalny: publiczne ogłoszenia, konta organizacji i wykonawców, oferty, pytania i odpowiedzi, rozstrzygnięcia, panel administratora, aktualności, audyt, powiadomienia, 2FA, pliki i kolejka e-mail.
-- `npm run check`: zakończone powodzeniem; lint i typecheck bez błędów, 22/22 testy jednostkowe zaliczone. Ostrzeżenie dotyczące użycia `<img>` usunięto 2026-11-16.
+- `npm run check`: zakończone powodzeniem; lint i typecheck bez błędów, 31/31 testów jednostkowych zaliczonych. Ostrzeżenie dotyczące użycia `<img>` usunięto 2026-11-16.
 - `npm run build`: zakończone powodzeniem z celowo niedostępnym adresem PostgreSQL; build nie wykonuje zapytań do bazy, nie zawiera błędów Prisma/P1001 ani wcześniejszych ostrzeżeń `jose`/Auth.js w Edge Runtime.
-- Testy E2E uruchomiono 2026-11-06 na izolowanej bazie PostgreSQL 16.15 `bk_test`: 10/10 scenariuszy zakończonych powodzeniem.
-- `npm audit`: 0 podatności w zależnościach produkcyjnych i developerskich po aktualizacji bezpieczeństwa z 2026-11-06.
+- Testy E2E uruchomiono 2026-11-18 na świeżej, izolowanej bazie PostgreSQL 16 `bk_test`: zastosowano 7/7 migracji i zaliczono 11/11 scenariuszy.
+- `npm audit --omit=dev --audit-level=high`: 0 podatności w zależnościach produkcyjnych. Pełny audyt narzędzi developerskich wykazuje 18 zgłoszeń `HIGH` pochodzących z jednego advisory `picomatch`; brak podatności `CRITICAL` i brak dostępnej bezpiecznej wersji w aktualnym drzewie Tailwind/ESLint.
+- Gotowość produkcyjna: `NO GO` do czasu skonfigurowania produkcyjnego skanera antymalware oraz formalnego zatwierdzenia okresów retencji. Bramka migracji i pełnego E2E na PostgreSQL została zamknięta 2026-11-18.
 - Repozytorium Git zainicjalizowano 2026-11-16 na gałęzi `main`; zdalny `origin` wskazuje `https://github.com/artur-dot-max/baza-konkurencyjnosci.git`.
 
 ## Mocne strony
@@ -50,10 +51,31 @@ Każda modyfikacja kodu, konfiguracji, schematu bazy danych, testów lub dokumen
 3. Częściowo zrealizowane 2026-11-16: zestaw zwiększono z 15 do 22 testów. Dodano testy tras API, CSP/nonce, dodatkowych wariantów uprawnień, retencji, walidacji treści publicznych i anonimizacji danych autora pytania. Nadal należy rozwijać testy integracyjne endpointów korzystających z bazy.
 4. Zrealizowane 2026-11-16: produkcyjna CSP używa osobnego nonce dla każdego żądania, `strict-dynamic`, `object-src 'none'` i nie zawiera `'unsafe-inline'`. Dokładne style atrybutowe generowane przez Next.js są dopuszczone wyłącznie przez trzy hashe i `unsafe-hashes`.
 5. Zrealizowane 2026-11-16: usunięto wildcard `images.remotePatterns`; aplikacja nie korzysta z obrazów zewnętrznych, więc dozwolone są wyłącznie obrazy lokalne oraz źródła określone w CSP.
-6. Dodać mechanizm sprzątania osieroconych plików tymczasowych, których podpisany token uploadu wygasł, ale plik nie został przypisany do rekordu.
+6. Zrealizowane 2026-11-18: dodano mechanizm sprzątania osieroconych plików tymczasowych po 24 godzinach i dodatkowej godzinie bezpieczeństwa; mechanizm pomija pliki przypisane do rekordów oraz dowiązania symboliczne.
 7. Dodać repozytorium Git lub odzyskać katalog `.git`, aby zapewnić historię, przegląd zmian i możliwość bezpiecznego wycofania modyfikacji.
 
 ## Dziennik zmian
+
+### 2026-11-17–18 — przedprodukcyjny audyt bezpieczeństwa, integralności i gotowości operacyjnej
+
+- Raport: dodano `AUDYT_PRZEDPRODUKCYJNY_2026-11-18.md` z podsumowaniem wykonawczym, oceną ryzyka, opisem znalezisk, planem migracji i regresji oraz decyzją wydaniową `NO GO`.
+- Krytyczna izolacja ofert: usunięto automatyczne przypisywanie anonimowych ofert na podstawie samej zgodności adresu e-mail. Panel wykonawcy, pobieranie załączników i składanie ofert wymagają teraz rzeczywistego `userId` albo zgodnego, podpisanego tokenu właściciela uploadu. Usuwa to możliwość przejęcia cudzej oferty przez rejestrację konta z adresem ofiary.
+- Integralność i współbieżność: dodano unikalność ofert dla par `announcementId/bidderEmail` i `announcementId/userId`, unikalność nazw załączników oraz blokady wiersza ogłoszenia i ponowną walidację stanu wewnątrz transakcji dla ofert, pytań, odpowiedzi i rozstrzygnięć. Migracja celowo przerywa się przy istniejących duplikatach zamiast arbitralnie usuwać dane.
+- Uprawnienia: poprawiono rozdzielenie odczytu i zapisu Organizacji; rola `VIEWER` może odczytać dane, ale nie może wykonać `PUT`. Rozszerzono scenariusz E2E o próbę niedozwolonej modyfikacji.
+- Pliki: dodano wykrywanie rzeczywistego typu PDF/DOCX/XLSX, odrzucanie pustych, zbyt dużych i niezgodnych plików, produkcyjny tryb fail-closed dla zewnętrznego skanera antymalware, ograniczony bypass wyłącznie dla E2E na bazie `_test`, wspólną kontrolę właściciela tokenu oraz bezpieczne sprzątanie osieroconych uploadów. Konfigurację opisano w `.env.example`, `docker-compose.yml`, `README.md` i `INSTRUKCJA_KOMPILACJI.md`.
+- 2FA: włączenie TOTP wymaga ponownego podania aktualnego hasła. Zużycie kodu zapasowego używa atomowego warunku optymistycznego, dzięki czemu dwa równoległe logowania nie mogą wykorzystać tego samego kodu.
+- Audyt: usunięto pomocnik połykający błędy zapisu. Krytyczne operacje zapisują log audytowy w tej samej transakcji co zmiana biznesowa, a nowy trigger PostgreSQL uniemożliwia modyfikację i usuwanie logów poza jawnym trybem konserwacyjnym.
+- Poczta i przypomnienia: kolejka ma limit prób, wykładniczy backoff, stan trwałej porażki, skrócony bezpieczny opis błędu i raportowanie w healthchecku. Retencja usuwa tylko wiadomości już wysłane. Przypomnienia terminowe są rezerwowane atomowo przez unikalny rekord kolejki.
+- Konta i zaproszenia: adresy e-mail są normalizowane do małych liter; migracja wymusza unikalność bez względu na wielkość liter. Reset hasła unieważnia wcześniejsze tokeny i zapisuje token, wiadomość oraz audyt atomowo. Endpoint zaproszeń nie ujawnia hasha tokenu i nie tworzy niewykonalnego zaproszenia dla istniejącego konta.
+- Eksport i kopie: komórki CSV są neutralizowane przed interpretacją jako formuły. Skrypt backupu odrzuca retencję mniejszą niż jeden dzień i sprawdza rzeczywistą granicę katalogu docelowego zamiast podatnego porównania prefiksu ścieżki.
+- Zależności i CI: dodano `file-type`, przeniesiono `tailwindcss-animate` do zależności developerskich oraz rozdzielono bramkę audytu na blokujący audyt produkcyjny `HIGH` i pełny audyt blokujący `CRITICAL`. Nie zastosowano pozornego override dla `picomatch`, ponieważ najnowsza dostępna wersja nadal podlega advisory.
+- Testy: dodano testy walidacji plików, skanera, właściciela tokenów, neutralizacji CSV, polityki kolejki pocztowej i sprzątania uploadów; zestaw jednostkowy zwiększono z 22 do 31 testów. E2E rozszerzono o odrzucenie duplikatu oferty i blokadę zapisu dla `VIEWER`.
+- Schemat i migracja: zmieniono `prisma/schema.prisma`; dodano `prisma/migrations/202611170001_offer_integrity/migration.sql` z kontrolami danych, indeksami unikalnymi, polami kolejki pocztowej oraz ochroną append-only logów audytowych.
+- Najważniejsze zmienione moduły aplikacji: trasy ofert, uploadów, pytań, odpowiedzi, rozstrzygnięć, Organizacji, zaproszeń, resetu hasła, 2FA, wiadomości administratora, aktualności i użytkowników; `src/auth.ts`, `src/lib/deadline-reminders.ts`, `src/lib/mail.ts`, `src/lib/moderation.ts`, skrypty administratora, workera pocztowego i backupu.
+- Nowe moduły: `src/lib/file-validation.ts`, `src/lib/mail-policy.ts`, `src/lib/offer-security.ts`, `src/lib/upload-cleanup.ts`, `tests/unit/file-security.test.ts`, `tests/unit/mail-policy.test.ts`, `tests/unit/upload-cleanup.test.ts`.
+- Usunięty moduł: `src/lib/audit.ts`, ponieważ ukrywał błędy zapisu i pozwalał zatwierdzić zmianę biznesową bez wymaganego śladu audytowego.
+- Weryfikacja wykonana podczas audytu: `npm run check` — 31/31 testów, lint i typecheck bez błędów; `npm run build` z celowo niedostępną bazą — sukces i 65 tras; `npx prisma validate` — sukces; produkcyjny audyt zależności — 0 podatności; negatywne próby skryptu backupu — sukces; 7/7 migracji na świeżej bazie PostgreSQL 16 — sukces; `npm run test:e2e` — 11/11 scenariuszy.
+- Ograniczenia i decyzja: lokalna bramka migracji i E2E została zamknięta. Do czasu uruchomienia i operacyjnego przetestowania produkcyjnego skanera antymalware oraz zatwierdzenia okresów retencji decyzja wydaniowa pozostaje `NO GO`.
 
 ### 2026-11-16 — przygotowanie pierwszego wydania i repozytorium GitHub
 

@@ -26,20 +26,22 @@ export async function POST(request: Request) {
     if (existing) return NextResponse.json({ error: "Konto z tym adresem e-mail już istnieje" }, { status: 409 });
 
     const password = await bcrypt.hash(parsed.data.password, 12);
-    const user = await prisma.user.create({
-      data: {
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({ data: {
         email: parsed.data.email.toLowerCase(),
         name: parsed.data.name,
         password,
         role: "CONTRACTOR",
         isActive: true,
-      },
-    });
-
-    // Link past guest offers with the same email
-    await prisma.offer.updateMany({
-      where: { bidderEmail: user.email, userId: null },
-      data: { userId: user.id },
+      } });
+      await tx.auditLog.create({ data: {
+        userId: created.id,
+        action: "REGISTER",
+        entity: "USER",
+        entityId: created.id,
+        details: JSON.stringify({ role: "CONTRACTOR" }),
+      } });
+      return created;
     });
 
     return NextResponse.json({ id: user.id, message: "Konto wykonawcy utworzone. Możesz się zalogować." }, { status: 201 });

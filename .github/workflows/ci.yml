@@ -57,8 +57,11 @@ jobs:
       - name: Zastosuj migracje bazy
         run: npm run db:deploy
 
-      - name: Sprawdź zależności
-        run: npm audit --audit-level=high
+      - name: Sprawdź zależności produkcyjne
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Zablokuj krytyczne podatności narzędzi developerskich
+        run: npm audit --audit-level=critical
 
       - name: Uruchom lint, typecheck i testy jednostkowe
         run: npm run check

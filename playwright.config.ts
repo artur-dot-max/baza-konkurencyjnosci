@@ -8,6 +8,7 @@ process.env.AUTH_TRUST_HOST = "true";
 process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3100";
 process.env.CONTACT_EMAIL = "contact@example.test";
 process.env.UPLOAD_DIR = ".local/test-uploads";
+process.env.E2E_TEST_MODE = "true";
 
 export default defineConfig({
   testDir: "./tests/e2e", fullyParallel: false, workers: 1, timeout: 90000,

@@ -2,6 +2,7 @@ import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { deliverPendingMail } from "@/lib/mail";
 import { processDeadlineReminders } from "@/lib/deadline-reminders";
+import { cleanupOrphanedUploads } from "@/lib/upload-cleanup";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
   try {
     await processDeadlineReminders();
     await deliverPendingMail();
+    await cleanupOrphanedUploads();
     return NextResponse.json({ status: "ok" });
   } catch {
     return NextResponse.json({ status: "unavailable" }, { status: 503 });

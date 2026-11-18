@@ -31,13 +31,21 @@ export async function POST() {
       color: { dark: "#123F36", light: "#FFFFFF" },
     });
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        totpSecret: encryptTotpSecret(secret.base32),
-        totpEnabled: false,
-        totpBackupCodes: [],
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          totpSecret: encryptTotpSecret(secret.base32),
+          totpEnabled: false,
+          totpBackupCodes: [],
+        },
+      });
+      await tx.auditLog.create({ data: {
+        userId: user.id,
+        action: "TOTP_SETUP",
+        entity: "USER",
+        entityId: user.id,
+      } });
     });
 
     return NextResponse.json({

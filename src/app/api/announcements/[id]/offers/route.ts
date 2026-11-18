@@ -7,7 +7,8 @@ import { checkRateLimit, getRateLimitHeaders, requestIp } from "@/lib/rate-limit
 import { offerSchema } from "@/lib/offer-validation";
 import { appUrl } from "@/lib/mail";
 import { notifyOrganizationUsers } from "@/lib/notifications";
-import { verifyOfferUploadToken } from "@/lib/upload-token";
+import { verifyUploadToken } from "@/lib/upload-token";
+import { offerUploadOwner } from "@/lib/offer-security";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -38,34 +39,16 @@ export async function POST(request: Request, { params }: Context) {
     if (!rate.success) {
       return NextResponse.json({ error: "Osiągnięto limit składanych ofert. Spróbuj później." }, { status: 429, headers: getRateLimitHeaders(rate) });
     }
-    const announcement = await prisma.announcement.findUnique({
-      where: { id },
-      include: {
-        organization: {
-          select: {
-            email: true,
-            users: { where: { isActive: true }, select: { email: true } },
-          },
-        },
-      },
-    });
-    if (!announcement || !isPublicAnnouncement(announcement)) {
-      return NextResponse.json({ error: "Nie znaleziono ogłoszenia" }, { status: 404 });
-    }
-    if (!announcement.submissionMethods.includes("PLATFORM")) {
-      return NextResponse.json({ error: "To ogłoszenie nie przyjmuje ofert przez serwis" }, { status: 409 });
-    }
-    if (!["PUBLISHED", "IN_PROGRESS"].includes(announcement.status) || !announcement.bidsDeadline || announcement.bidsDeadline <= new Date()) {
-      return NextResponse.json({ error: "Termin składania ofert upłynął" }, { status: 409 });
-    }
     const parsed = offerSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.issues[0]?.message || "Nieprawidłowe dane" }, { status: 400 });
     }
-    const { confirmation: _confirmation, website: _website, bidderNip, attachmentIds = [], ...data } = parsed.data;
+    const { confirmation: _confirmation, website: _website, bidderNip, attachmentIds = [], ...rawData } = parsed.data;
+    const data = { ...rawData, bidderEmail: rawData.bidderEmail.toLowerCase() };
 
+    const uploadOwner = offerUploadOwner(session, request);
     const uploads = attachmentIds
-      .map((token) => verifyOfferUploadToken(token))
+      .map((token) => verifyUploadToken(token, uploadOwner, "offer"))
       .filter((u): u is NonNullable<typeof u> => !!u);
     if (attachmentIds.length && uploads.length !== attachmentIds.length) {
       return NextResponse.json({ error: "Nieprawidłowy załącznik oferty" }, { status: 400 });
@@ -74,7 +57,30 @@ export async function POST(request: Request, { params }: Context) {
     const contractorUserId =
       session?.user?.role === "CONTRACTOR" && session.user.id ? session.user.id : undefined;
 
-    const offer = await prisma.$transaction(async (tx) => {
+    const outcome = await prisma.$transaction(async (tx) => {
+      // Serialize submission against resolve/cancel/update of this announcement.
+      await tx.$queryRaw`SELECT "id" FROM "announcements" WHERE "id" = ${id} FOR UPDATE`;
+      const announcement = await tx.announcement.findUnique({
+        where: { id },
+        include: {
+          organization: {
+            select: {
+              email: true,
+              users: { where: { isActive: true }, select: { email: true } },
+            },
+          },
+        },
+      });
+      if (!announcement || !isPublicAnnouncement(announcement)) {
+        return { ok: false as const, status: 404, error: "Nie znaleziono ogłoszenia" };
+      }
+      if (!announcement.submissionMethods.includes("PLATFORM")) {
+        return { ok: false as const, status: 409, error: "To ogłoszenie nie przyjmuje ofert przez serwis" };
+      }
+      if (!["PUBLISHED", "IN_PROGRESS"].includes(announcement.status) || !announcement.bidsDeadline || announcement.bidsDeadline <= new Date()) {
+        return { ok: false as const, status: 409, error: "Termin składania ofert upłynął" };
+      }
+
       const created = await tx.offer.create({
         data: {
           ...data,
@@ -153,15 +159,20 @@ export async function POST(request: Request, { params }: Context) {
             `Ogłoszenie: ${publicLink}`,
             "",
             "Zapisz numer potwierdzenia. Dane oferty są widoczne wyłącznie dla zamawiającego.",
-            "Konto wykonawcy (opcjonalne) pozwala przeglądać historię ofert: " + appUrl("/rejestracja-wykonawcy"),
+            contractorUserId
+              ? "Oferta jest dostępna w historii na Twoim koncie wykonawcy."
+              : "Oferty anonimowej nie można później przypisać do konta wyłącznie na podstawie adresu e-mail.",
           ]
             .filter(Boolean)
             .join("\n"),
         },
       });
-      return created;
+      return { ok: true as const, offer: created };
     });
-    return NextResponse.json({ id: offer.id, submittedAt: offer.submittedAt }, { status: 201, headers: getRateLimitHeaders(rate) });
+    if (!outcome.ok) {
+      return NextResponse.json({ error: outcome.error }, { status: outcome.status });
+    }
+    return NextResponse.json({ id: outcome.offer.id, submittedAt: outcome.offer.submittedAt }, { status: 201, headers: getRateLimitHeaders(rate) });
   } catch (error) {
     return apiError(error);
   }

@@ -7,12 +7,18 @@ import { procurementResultSchema, cancellationSchema } from "@/lib/validators";
 import { appUrl } from "@/lib/mail";
 import { createNotificationsForUsers } from "@/lib/notifications";
 
+class ResolutionError extends Error {
+  constructor(message: string, readonly status: 403 | 404 | 409) {
+    super(message);
+  }
+}
+
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id } = await params;
-    const ann = await prisma.announcement.findUnique({
+    let ann = await prisma.announcement.findUnique({
       where: { id },
       include: {
         offers: { select: { bidderEmail: true, bidderName: true, userId: true } },
@@ -41,6 +47,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const updated = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "announcements" WHERE "id" = ${id} FOR UPDATE`;
+      const locked = await tx.announcement.findUnique({
+        where: { id },
+        include: { offers: { select: { bidderEmail: true, bidderName: true, userId: true } } },
+      });
+      if (!locked) throw new ResolutionError("Not found", 404);
+      if (!canWriteOrganization(session, locked.organizationId)) throw new ResolutionError("Forbidden", 403);
+      if (!["PUBLISHED", "IN_PROGRESS"].includes(locked.status)) {
+        throw new ResolutionError("Postępowanie nie jest otwarte", 409);
+      }
+      if (type === "resolve" && (!locked.bidsDeadline || locked.bidsDeadline > new Date())) {
+        throw new ResolutionError("Termin składania ofert jeszcze nie upłynął", 409);
+      }
+      ann = locked;
+
       const updated = await tx.announcement.update({
         where: { id, status: ann.status, updatedAt: ann.updatedAt },
         data: {
@@ -116,6 +137,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
     return NextResponse.json(updated);
   } catch (error) {
+    if (error instanceof ResolutionError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return apiError(error);
   }
 }
