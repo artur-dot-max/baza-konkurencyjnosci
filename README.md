@@ -2,7 +2,7 @@
 
 | Pole | Wartość |
 | --- | --- |
-| Symbol | `BKFS` — symbol roboczy, do potwierdzenia w rejestrze systemów MS |
+| Symbol | `BKFS` |
 | Wersja | `BKFS 1.0.0` |
 | Nazwa | Baza Konkurencyjności Funduszu Sprawiedliwości |
 | Przyczyna zmiany | Pierwsze uporządkowane wydanie przeznaczone do przekazania kodów źródłowych |
