@@ -11,7 +11,7 @@
 
 > Przed formalnym przekazaniem do Bitbucket MS symbol `BKFS` musi zostać potwierdzony z rejestrem systemów MS. Po potwierdzeniu należy zaktualizować ten plik, `package.json`, `INSTRUKCJA_KOMPILACJI.md` i `src/lib/product-info.ts`.
 
-## Opis produktu
+## Opis produktu  
 
 Portal do publikowania i prowadzenia postępowań zakupowych Funduszu Sprawiedliwości. Obejmuje publiczną wyszukiwarkę ogłoszeń, konta Organizacji i Wykonawców, składanie ofert, pytania i odpowiedzi, rozstrzygnięcia, panel administratora, audyt, powiadomienia, uwierzytelnianie dwuetapowe, obsługę załączników i kolejkę pocztową.
 
