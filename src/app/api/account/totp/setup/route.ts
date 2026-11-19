@@ -5,8 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-error";
 import { buildTotp, encryptTotpSecret, generateTotpSecret } from "@/lib/totp";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { auditRequestFields } from "@/lib/audit-context";
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: "Brak autoryzacji" }, { status: 401 });
@@ -45,6 +46,7 @@ export async function POST() {
         action: "TOTP_SETUP",
         entity: "USER",
         entityId: user.id,
+        ...auditRequestFields(request),
       } });
     });
 
@@ -55,6 +57,6 @@ export async function POST() {
       issuer: "Baza Konkurencyjności FS",
     });
   } catch (error) {
-    return apiError(error);
+    return apiError(error, request);
   }
 }

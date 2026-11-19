@@ -69,6 +69,8 @@ Do zbudowania produktu wymagane są publiczne pakiety npm wyszczególnione w `pa
 
    Dla środowiska produkcyjnego obowiązkowo ustawić `MALWARE_SCAN_URL` oraz `MALWARE_SCAN_TOKEN`. Skaner przyjmuje zawartość pliku metodą `POST` i zwraca `204` dla pliku czystego albo `422` dla wykrytego zagrożenia. Brak skanera blokuje upload kodem `503`.
 
+   Worker pocztowy i aplikacja muszą korzystać z tego samego trwałego katalogu `UPLOAD_DIR`, ponieważ potwierdzenia złożenia Oferty zawierają jej załączniki. Przy limicie pięciu plików po 10 MB serwer SMTP musi przyjmować wiadomości o rozmiarze co najmniej 70 MB, uwzględniając narzut MIME; jeżeli infrastruktura pocztowa ma niższy limit, przed wdrożeniem należy odpowiednio zmniejszyć limit załączników w aplikacji.
+
 ### 3.2. Kontrola źródeł
 
 ```powershell

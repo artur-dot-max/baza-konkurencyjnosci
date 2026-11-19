@@ -113,15 +113,16 @@ export default function FAQPage() {
               <AccordionTrigger>Czy dostanę potwierdzenie złożenia oferty?</AccordionTrigger>
               <AccordionContent className="text-gray-700">
                 Tak. Po złożeniu oferty przez serwis zobaczysz numer potwierdzenia na stronie oraz otrzymasz e-mail
-                z numerem, datą i linkiem do ogłoszenia. Zapisz numer potwierdzenia.
+                zawierający numer potwierdzenia, datę i godzinę, pełną treść Oferty oraz dodane załączniki. Takie samo
+                potwierdzenie otrzymuje Organizacja prowadząca postępowanie. Zapisz numer potwierdzenia.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="offer-2">
               <AccordionTrigger>Gdzie zobaczę historię swoich ofert?</AccordionTrigger>
               <AccordionContent className="text-gray-700">
                 Po założeniu konta wykonawcy i zalogowaniu przejdź do panelu wykonawcy. Zobaczysz złożone oferty,
-                statusy postępowań, opisy i załączniki. Oferty złożone wcześniej na ten sam e-mail zostaną powiązane
-                z kontem.
+                statusy postępowań, opisy i załączniki. Ze względów bezpieczeństwa historia obejmuje wyłącznie Oferty
+                złożone po zalogowaniu na to konto; sam adres e-mail nie służy do przejmowania wcześniejszych Ofert.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="offer-3">

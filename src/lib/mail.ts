@@ -1,7 +1,46 @@
 import nodemailer from "nodemailer";
+import path from "path";
+import { lstat } from "fs/promises";
 import { prisma } from "./prisma";
 import { MAX_MAIL_ATTEMPTS, mailRetryDelayMs, safeMailError } from "./mail-policy";
 export function appUrl(path: string) { return new URL(path, process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").toString(); }
+
+export type QueuedMailAttachment = {
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+};
+
+export function serializeMailAttachments(attachments: QueuedMailAttachment[]): string | null {
+  return attachments.length ? JSON.stringify(attachments) : null;
+}
+
+async function resolveMailAttachments(serialized: string | null) {
+  if (!serialized) return undefined;
+  const parsed = JSON.parse(serialized) as QueuedMailAttachment[];
+  if (!Array.isArray(parsed) || parsed.length > 5) throw new Error("Invalid queued mail attachments");
+  const uploadRoot = path.resolve(process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads"));
+  const resolved = [];
+  for (const attachment of parsed) {
+    if (
+      !attachment ||
+      typeof attachment.fileName !== "string" ||
+      path.basename(attachment.fileName) !== attachment.fileName ||
+      typeof attachment.originalName !== "string" ||
+      !attachment.originalName ||
+      typeof attachment.mimeType !== "string"
+    ) {
+      throw new Error("Invalid queued mail attachment");
+    }
+    const filePath = path.resolve(uploadRoot, attachment.fileName);
+    if (!filePath.startsWith(`${uploadRoot}${path.sep}`)) throw new Error("Mail attachment outside upload directory");
+    const stat = await lstat(filePath);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("Invalid mail attachment file");
+    resolved.push({ filename: attachment.originalName.replace(/[\r\n]/g, "_"), contentType: attachment.mimeType, path: filePath });
+  }
+  return resolved;
+}
+
 export async function deliverPendingMail() {
   if (!process.env.SMTP_HOST || !process.env.MAIL_FROM) throw new Error("SMTP configuration is missing");
   const transport = nodemailer.createTransport({
@@ -20,9 +59,10 @@ export async function deliverPendingMail() {
     });
     if (!claimed.count) continue;
     try {
+      const attachments = await resolveMailAttachments(mail.attachments);
       await transport.sendMail({ from: process.env.MAIL_FROM, to: mail.to, subject: mail.subject, text: mail.text,
-        replyTo: mail.replyTo || undefined, messageId: `<${mail.id}@${new URL(appUrl("/")).hostname}>` });
-      await prisma.emailOutbox.update({ where: { id: mail.id }, data: { sentAt: new Date(), text: "", lastError: null } });
+        replyTo: mail.replyTo || undefined, attachments, messageId: `<${mail.id}@${new URL(appUrl("/")).hostname}>` });
+      await prisma.emailOutbox.update({ where: { id: mail.id }, data: { sentAt: new Date(), text: "", attachments: null, lastError: null } });
     } catch (error) {
       const attemptsAfterClaim = mail.attempts + 1;
       const permanentlyFailed = attemptsAfterClaim >= MAX_MAIL_ATTEMPTS;

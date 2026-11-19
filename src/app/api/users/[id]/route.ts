@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { safeUserSelect } from "@/lib/access";
 import { z } from "zod";
+import { auditRequestFields } from "@/lib/audit-context";
 
 export async function PUT(
   request: Request,
@@ -36,6 +37,7 @@ export async function PUT(
         userId: session.user.id,
         action: "UPDATE",
         entity: "USER",
+        ...auditRequestFields(request),
         entityId: id,
         details: JSON.stringify({ isActive: updated.isActive }),
       } });

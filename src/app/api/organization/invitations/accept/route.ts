@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-error";
 import { passwordSchema } from "@/lib/password";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
+import { auditRequestFields } from "@/lib/audit-context";
 
 const schema = z.object({
   token: z.string().min(20),
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
         userId: memberId,
         action: "ACCEPT_INVITATION",
         entity: "ORGANIZATION_INVITATION",
+        ...auditRequestFields(request),
         entityId: invite.id,
         details: JSON.stringify({ organizationId: invite.organizationId, role: invite.role }),
       } });

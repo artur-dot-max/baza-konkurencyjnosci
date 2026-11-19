@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { registerOrganizationSchema } from "@/lib/validators";
+import { auditRequestFields } from "@/lib/audit-context";
 
 export async function GET(request: Request) {
   try {
@@ -80,6 +81,7 @@ export async function POST(request: Request) {
         userId: created.users[0].id,
         action: "CREATE",
         entity: "ORGANIZATION",
+        ...auditRequestFields(request),
         entityId: created.id,
         details: JSON.stringify({ name: created.name }),
       } });

@@ -10,7 +10,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
     const { page, limit, skip } = pagination(request.url);
 
     const [data, total] = await Promise.all([

@@ -7,6 +7,7 @@ import { checkRateLimit, requestIp, getRateLimitHeaders } from "@/lib/rate-limit
 import { appUrl } from "@/lib/mail";
 import { notifyOrganizationUsers } from "@/lib/notifications";
 import { publicQuestionSchema, redactQuestionAuthor } from "@/lib/moderation";
+import { auditRequestFields } from "@/lib/audit-context";
 
 class QuestionClosedError extends Error {}
 
@@ -90,6 +91,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         entity: "QUESTION",
         entityId: created.id,
         details: JSON.stringify({ announcementId: id }),
+        ...auditRequestFields(request),
       } });
       return created;
     });

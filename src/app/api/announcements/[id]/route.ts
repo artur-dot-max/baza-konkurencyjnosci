@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { SUBMISSION_METHODS } from "@/lib/utils";
 import { z } from "zod";
+import { auditRequestFields } from "@/lib/audit-context";
 
 export async function GET(
   _request: Request,
@@ -179,6 +180,7 @@ export async function PUT(
           action: deadlineExtended ? "EXTEND_DEADLINE" : "UPDATE",
           entity: "ANNOUNCEMENT",
           entityId: id,
+          ...auditRequestFields(request),
           details: JSON.stringify({ before: oldAnn, after: updated }),
         },
       });
@@ -193,7 +195,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -221,11 +223,12 @@ export async function DELETE(
         entity: "ANNOUNCEMENT",
         entityId: id,
         details: JSON.stringify(ann),
+        ...auditRequestFields(request),
       } });
     });
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    return apiError(error);
+    return apiError(error, request);
   }
 }

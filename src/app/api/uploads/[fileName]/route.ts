@@ -5,6 +5,8 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
 import { ownsOffer } from "@/lib/offer-security";
+import { markOfferOpened } from "@/lib/offer-open";
+import { auditRequestContext } from "@/lib/audit-context";
 
 const uploadDirectory = path.resolve(process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads"));
 
@@ -22,7 +24,7 @@ async function fileResponse(fileName: string, originalName: string, mimeType: st
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ fileName: string }> }
 ) {
   const { fileName } = await params;
@@ -68,7 +70,21 @@ export async function GET(
   }
 
   try {
-    return await fileResponse(fileName, offerAttachment.originalName, offerAttachment.mimeType);
+    const response = await fileResponse(fileName, offerAttachment.originalName, offerAttachment.mimeType);
+    if (isOrgOwner && session?.user?.id) {
+      const context = auditRequestContext(request);
+      await markOfferOpened(offer.id, offer.announcement.id, session.user.id, context);
+      await prisma.auditLog.create({ data: {
+        action: "DOWNLOAD",
+        entity: "ATTACHMENT",
+        entityId: offerAttachment.id,
+        userId: session.user.id,
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent,
+        details: JSON.stringify({ offerId: offer.id, announcementId: offer.announcement.id, fileName, path: context.path }),
+      } });
+    }
+    return response;
   } catch {
     return NextResponse.json({ error: "Nie znaleziono pliku" }, { status: 404 });
   }

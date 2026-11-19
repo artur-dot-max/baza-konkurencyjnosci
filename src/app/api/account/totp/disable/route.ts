@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-error";
 import { decryptTotpSecret, totpCodeSchema, verifyTotpCode } from "@/lib/totp";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { auditRequestFields } from "@/lib/audit-context";
 
 const disableSchema = z.object({
   password: z.string().min(1, "Podaj hasło"),
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
           action: "TOTP_DISABLE",
           entity: "USER",
           entityId: user.id,
+          ...auditRequestFields(request),
         },
       });
     });

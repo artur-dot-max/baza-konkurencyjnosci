@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { apiError } from "@/lib/api-error";
 import { newsInputSchema, newsStatus, newsWriteData, publicNewsWhere } from "@/lib/news";
 import type { Prisma } from "@prisma/client";
+import { auditRequestFields } from "@/lib/audit-context";
 
 export async function GET(request: Request) {
   try {
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
         userId: session.user.id,
         action: "CREATE",
         entity: "NEWS",
+        ...auditRequestFields(request),
         entityId: created.id,
         details: JSON.stringify({ title: created.title, status: newsStatus(created) }),
       } });

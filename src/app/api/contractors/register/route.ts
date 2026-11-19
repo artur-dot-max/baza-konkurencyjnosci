@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-error";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { passwordSchema } from "@/lib/password";
+import { auditRequestFields } from "@/lib/audit-context";
 
 const schema = z.object({
   name: z.string().trim().min(2).max(200),
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
         userId: created.id,
         action: "REGISTER",
         entity: "USER",
+        ...auditRequestFields(request),
         entityId: created.id,
         details: JSON.stringify({ role: "CONTRACTOR" }),
       } });

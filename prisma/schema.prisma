@@ -47,6 +47,13 @@ enum OrderType {
   CONSTRUCTION // Roboty budowlane
 }
 
+enum OfferSubmissionMethod {
+  PLATFORM
+  EMAIL
+  IN_PERSON
+  E_DELIVERY
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -72,7 +79,9 @@ model User {
   sentMessages    AdminMessage[] @relation("AdminMessageSender")
   receivedMessages AdminMessageRecipient[]
   notifications   Notification[]
-  offers          Offer[]
+  offers          Offer[]             @relation("OfferSubmitter")
+  enteredOffers   Offer[]             @relation("OfferEnteredBy")
+  openedOffers    Offer[]             @relation("OfferOpenedBy")
   sentInvitations OrganizationInvitation[] @relation("InviteSender")
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -152,14 +161,21 @@ model Announcement {
 model Offer {
   id             String            @id @default(cuid())
   bidderName     String
-  bidderEmail    String
+  bidderEmail    String?
   bidderNip      String?
   price          Decimal           @db.Decimal(12, 2)
   description    String?           @db.Text
   announcementId String
   announcement   Announcement      @relation(fields: [announcementId], references: [id], onDelete: Cascade)
   userId         String?
-  user           User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user           User?             @relation("OfferSubmitter", fields: [userId], references: [id], onDelete: SetNull)
+  submissionMethod OfferSubmissionMethod @default(PLATFORM)
+  enteredById    String?
+  enteredBy      User?             @relation("OfferEnteredBy", fields: [enteredById], references: [id], onDelete: SetNull)
+  openedAt       DateTime?
+  openedById     String?
+  openedBy       User?             @relation("OfferOpenedBy", fields: [openedById], references: [id], onDelete: SetNull)
+  entryNote      String?           @db.Text
   attachments    OfferAttachment[]
   submittedAt    DateTime          @default(now())
 
@@ -167,6 +183,10 @@ model Offer {
   @@index([submittedAt])
   @@index([userId])
   @@index([bidderEmail])
+  @@index([submissionMethod])
+  @@index([enteredById])
+  @@index([openedAt])
+  @@index([openedById])
   @@unique([announcementId, bidderEmail])
   @@unique([announcementId, userId])
   @@map("offers")
@@ -320,6 +340,7 @@ model EmailOutbox {
   subject     String
   text        String    @db.Text
   replyTo     String?
+  attachments String?   @db.Text
   attempts    Int       @default(0)
   availableAt DateTime  @default(now())
   sentAt      DateTime?

@@ -5,6 +5,7 @@ import "./globals.css";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 import { a11yBootstrapScript } from "@/components/accessibility-toolbar";
+import { ActivityTracker } from "@/components/activity-tracker";
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
@@ -59,6 +60,7 @@ export default function RootLayout({
           Przejdź do treści głównej
         </a>
         <SessionProvider>
+          <ActivityTracker />
           {children}
           <CookieConsentBanner />
         </SessionProvider>

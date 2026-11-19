@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-error";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { z } from "zod";
+import { auditRequestFields } from "@/lib/audit-context";
 
 export async function POST(request: Request) {
   try {
@@ -21,9 +22,9 @@ export async function POST(request: Request) {
       if (!consumed.count) return false;
       await tx.user.update({ where: { id: reset.userId }, data: { password, sessionVersion: { increment: 1 } } });
       await tx.passwordReset.deleteMany({ where: { userId: reset.userId } });
-      await tx.auditLog.create({ data: { userId: reset.userId, action: "PASSWORD_RESET", entity: "USER", entityId: reset.userId } });
+      await tx.auditLog.create({ data: { userId: reset.userId, action: "PASSWORD_RESET", entity: "USER", entityId: reset.userId, ...auditRequestFields(request) } });
       return true;
     });
     return changed ? NextResponse.json({ message: "Hasło zmienione. Zaloguj się ponownie." }) : NextResponse.json({ error: "Link został wykorzystany" }, { status: 400 });
-  } catch (error) { return apiError(error); }
+  } catch (error) { return apiError(error, request); }
 }

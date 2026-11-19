@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { consumeBackupCode, decryptTotpSecret, verifyTotpCode } from "@/lib/totp";
+import { auditRequestContext } from "@/lib/audit-context";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -24,7 +25,7 @@ const nextAuth = NextAuth({
         password: { label: "Hasło", type: "password" },
         totpCode: { label: "Kod 2FA", type: "text" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const parsed = credentialsSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
@@ -62,6 +63,17 @@ const nextAuth = NextAuth({
             if (consumed.count !== 1) return null;
           }
         }
+
+        const context = auditRequestContext(request, "/logowanie");
+        await prisma.auditLog.create({ data: {
+          action: "LOGIN",
+          entity: "USER",
+          entityId: user.id,
+          userId: user.id,
+          ipAddress: context.ipAddress,
+          userAgent: context.userAgent,
+          details: JSON.stringify({ path: context.path, authentication: user.totpEnabled ? "PASSWORD_TOTP" : "PASSWORD" }),
+        } });
 
         return {
           id: user.id,

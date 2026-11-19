@@ -7,6 +7,7 @@ import { apiError } from "@/lib/api-error";
 import { appUrl } from "@/lib/mail";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { canManageOrganizationTeam, ownsOrganization } from "@/lib/access";
+import { auditRequestFields } from "@/lib/audit-context";
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -106,6 +107,7 @@ export async function POST(request: Request) {
         userId: session.user.id,
         action: "INVITE",
         entity: "ORGANIZATION_INVITATION",
+        ...auditRequestFields(request),
         entityId: created.id,
         details: JSON.stringify({ email, role: parsed.data.role }),
       } });
@@ -141,6 +143,7 @@ export async function DELETE(request: Request) {
           userId: session.user.id,
           action: "CANCEL_INVITATION",
           entity: "ORGANIZATION_INVITATION",
+          ...auditRequestFields(request),
           entityId: invitationId,
         } });
       }

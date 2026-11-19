@@ -6,6 +6,7 @@ import { apiError } from "@/lib/api-error";
 import { procurementResultSchema, cancellationSchema } from "@/lib/validators";
 import { appUrl } from "@/lib/mail";
 import { createNotificationsForUsers } from "@/lib/notifications";
+import { auditRequestFields } from "@/lib/audit-context";
 
 class ResolutionError extends Error {
   constructor(message: string, readonly status: 403 | 404 | 409) {
@@ -78,11 +79,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         },
       });
       await tx.auditLog.create({
-        data: { userId: session.user.id, entity: "ANNOUNCEMENT", entityId: id, action: type.toUpperCase() },
+        data: { userId: session.user.id, entity: "ANNOUNCEMENT", entityId: id, action: type.toUpperCase(), ...auditRequestFields(request) },
       });
 
       const publicLink = appUrl(`/ogloszenia/${id}`);
-      const bidderEmails = [...new Set(ann.offers.map((o) => o.bidderEmail).filter(Boolean))];
+      const bidderEmails = [...new Set(ann.offers.map((o) => o.bidderEmail).filter((email): email is string => Boolean(email)))];
       const bidderUserIds = [
         ...new Set(ann.offers.map((o) => o.userId).filter((uid): uid is string => !!uid)),
       ];
@@ -140,6 +141,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (error instanceof ResolutionError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    return apiError(error);
+    return apiError(error, request);
   }
 }

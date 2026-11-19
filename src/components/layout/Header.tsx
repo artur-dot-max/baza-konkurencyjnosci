@@ -6,6 +6,9 @@ import { auth, signOut } from "@/auth"
 import { AccessibilityToolbar } from "@/components/accessibility-toolbar"
 import { Button } from "@/components/ui/button"
 import { NotificationsBell } from "@/components/notifications-bell"
+import { headers } from "next/headers"
+import { prisma } from "@/lib/prisma"
+import { auditHeadersContext } from "@/lib/audit-context"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +34,24 @@ function panelLabel(role?: string) {
   if (role === "ADMIN") return "Panel administratora"
   if (role === "CONTRACTOR") return "Panel wykonawcy"
   return "Panel zamawiającego"
+}
+
+async function logoutAction() {
+  "use server"
+  const session = await auth()
+  if (session?.user?.id) {
+    const context = auditHeadersContext(await headers(), "/api/auth/signout")
+    await prisma.auditLog.create({ data: {
+      action: "LOGOUT",
+      entity: "USER",
+      entityId: session.user.id,
+      userId: session.user.id,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+      details: JSON.stringify({ path: context.path }),
+    } })
+  }
+  await signOut()
 }
 
 export async function Header() {
@@ -99,10 +120,7 @@ export async function Header() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <form action={async () => {
-                      "use server"
-                      await signOut()
-                    }}>
+                    <form action={logoutAction}>
                       <button type="submit" className="w-full text-left">Wyloguj się</button>
                     </form>
                   </DropdownMenuItem>
@@ -156,10 +174,7 @@ export async function Header() {
                     <Link href={settingsHref(session.user.role)} className="w-full">Ustawienia konta</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <form action={async () => {
-                      "use server"
-                      await signOut()
-                    }} className="w-full">
+                    <form action={logoutAction} className="w-full">
                       <button type="submit" className="w-full text-left">Wyloguj się</button>
                     </form>
                   </DropdownMenuItem>

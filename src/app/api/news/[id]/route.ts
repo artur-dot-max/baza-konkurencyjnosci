@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-error";
 import { newsInputSchema, newsStatus, newsWriteData } from "@/lib/news";
+import { auditRequestFields } from "@/lib/audit-context";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -38,6 +39,7 @@ export async function PUT(request: Request, { params }: Context) {
         userId: session.user.id,
         action: "UPDATE",
         entity: "NEWS",
+        ...auditRequestFields(request),
         entityId: updated.id,
         details: JSON.stringify({ title: updated.title, from: newsStatus(current), to: newsStatus(updated) }),
       } });
@@ -49,7 +51,7 @@ export async function PUT(request: Request, { params }: Context) {
   }
 }
 
-export async function DELETE(_request: Request, { params }: Context) {
+export async function DELETE(request: Request, { params }: Context) {
   try {
     const session = await adminSession();
     if (!session) return NextResponse.json({ error: "Brak uprawnień" }, { status: 401 });
@@ -62,12 +64,13 @@ export async function DELETE(_request: Request, { params }: Context) {
         userId: session.user.id,
         action: "DELETE",
         entity: "NEWS",
+        ...auditRequestFields(request),
         entityId: id,
         details: JSON.stringify({ title: item.title }),
       } });
     });
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    return apiError(error);
+    return apiError(error, request);
   }
 }

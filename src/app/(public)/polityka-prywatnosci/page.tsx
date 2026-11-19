@@ -9,7 +9,7 @@ export default function PrivacyPolicyPage() {
   return (
     <div className="container mx-auto max-w-4xl px-4 py-12">
       <h1 className="text-3xl font-bold text-[#145447] mb-3">Polityka prywatności i klauzula informacyjna</h1>
-      <p className="text-sm text-gray-600 mb-8">Stan na 7 listopada 2026 r.</p>
+      <p className="text-sm text-gray-600 mb-8">Stan na 19 listopada 2026 r.</p>
 
       <div className="prose prose-green max-w-none text-gray-700">
         <h2 className="text-xl font-semibold text-[#145447] mt-8 mb-4">1. Administratorzy danych osobowych</h2>
@@ -72,6 +72,11 @@ export default function PrivacyPolicyPage() {
           Przetwarzane mogą być: imię i nazwisko, służbowe dane kontaktowe, stanowisko lub rola, dane konta i uwierzytelniania,
           dane Organizacji, treść korespondencji, dane zawarte w Ogłoszeniach, pytaniach, Ofertach i załącznikach oraz dane
           techniczne, takie jak adres IP, identyfikatory sesji i historia operacji.
+        </p>
+        <p>
+          W celu zapewnienia bezpieczeństwa i rozliczalności System rejestruje również datę i czas logowania, wyświetlenia
+          stron, złożenia i odczytania Oferty, pobrania załącznika oraz wykonania zmian w danych, a także identyfikator
+          użytkownika, adres IP, informacje o przeglądarce i zakresie wykonanej operacji.
         </p>
         <p>
           Dane pochodzą bezpośrednio od osoby, której dotyczą, od Organizacji lub Wykonawcy, od uprawnionego użytkownika

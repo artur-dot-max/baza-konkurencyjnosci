@@ -6,6 +6,7 @@ import { apiError } from "@/lib/api-error";
 import { appUrl } from "@/lib/mail";
 import { createNotificationsForUsers } from "@/lib/notifications";
 import { z } from "zod";
+import { auditRequestFields } from "@/lib/audit-context";
 const updateSchema = z.object({
   name: z.string().trim().min(3).max(200).optional(), nip: z.string().regex(/^\d{10}$/).optional(),
   regon: z.string().regex(/^\d{9}(\d{5})?$/).optional(),
@@ -80,7 +81,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         }
       }
       await tx.auditLog.create({ data: { userId: session.user.id, action: "UPDATE", entity: "ORGANIZATION", entityId: id,
-        details: JSON.stringify({ fields: Object.keys(orgData), status: updated.status, statusReason: statusReason || undefined }) } });
+        details: JSON.stringify({ fields: Object.keys(orgData), status: updated.status, statusReason: statusReason || undefined }), ...auditRequestFields(request) } });
       return updated;
     });
     return NextResponse.json(org);

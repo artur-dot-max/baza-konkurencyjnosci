@@ -26,6 +26,7 @@ Portal do publikowania i prowadzenia postępowań zakupowych Funduszu Sprawiedli
 - dodano CI, testy jednostkowe i E2E oraz build niezależny od dostępności bazy;
 - zaostrzono CSP i usunięto ostrzeżenia `jose`/Edge Runtime;
 - dostosowano dokumentację repozytorium do procedury przekazywania kodów źródłowych MS.
+- dodano kompletne potwierdzenia złożenia Oferty, ręczną ewidencję Ofert złożonych poza Systemem, rejestr pierwszego odczytu oraz rozszerzony dziennik aktywności.
 
 Szczegółowy dziennik znajduje się w [`projekt.md`](projekt.md).
 
@@ -64,6 +65,8 @@ Konfigurację tworzy się przez skopiowanie `.env.example` do lokalnego, nieewid
 - `TRUST_PROXY=true` wyłącznie za zaufanym reverse proxy nadpisującym nagłówki klienta.
 
 Plików `.env`, kluczy, tokenów, certyfikatów prywatnych i danych produkcyjnych nie wolno dodawać do repozytorium.
+
+Serwer SMTP musi przyjmować wiadomości zawierające kopie wszystkich załączników Oferty. Przy obecnym limicie pięciu plików po 10 MB należy zapewnić limit wiadomości co najmniej 70 MB (50 MB danych oraz narzut kodowania MIME) albo przed uruchomieniem produkcyjnym uzgodnić i wdrożyć niższy limit załączników. Worker pocztowy musi mieć dostęp do tego samego trwałego katalogu `UPLOAD_DIR` co aplikacja.
 
 ## Uruchomienie przez Docker Compose
 

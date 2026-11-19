@@ -8,6 +8,7 @@ import { z } from "zod";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
 import { sanitizeRichText } from "@/lib/sanitize";
 import { verifyUploadToken } from "@/lib/upload-token";
+import { auditRequestFields } from "@/lib/audit-context";
 
 export async function GET(request: Request) {
   try {
@@ -127,6 +128,7 @@ export async function POST(request: Request) {
           action: "CREATE",
           entity: "ANNOUNCEMENT",
           entityId: created.id,
+          ...auditRequestFields(request),
           details: JSON.stringify({ status: created.status }),
         },
       });

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-error";
 import { z } from "zod";
+import { auditRequestFields } from "@/lib/audit-context";
 
 const sendSchema = z.object({
   subject: z.string().trim().min(3, "Temat musi mieć co najmniej 3 znaki").max(200),
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
         userId: session.user.id,
         action: "CREATE",
         entity: "MESSAGE",
+        ...auditRequestFields(request),
         entityId: created.id,
         details: JSON.stringify({ recipients: users.length, subject: parsed.data.subject }),
       } });

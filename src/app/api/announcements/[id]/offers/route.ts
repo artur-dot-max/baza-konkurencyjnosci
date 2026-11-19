@@ -5,20 +5,26 @@ import { apiError } from "@/lib/api-error";
 import { isPublicAnnouncement, ownsOrganization } from "@/lib/access";
 import { checkRateLimit, getRateLimitHeaders, requestIp } from "@/lib/rate-limit";
 import { offerSchema } from "@/lib/offer-validation";
-import { appUrl } from "@/lib/mail";
+import { appUrl, serializeMailAttachments } from "@/lib/mail";
 import { notifyOrganizationUsers } from "@/lib/notifications";
 import { verifyUploadToken } from "@/lib/upload-token";
 import { offerUploadOwner } from "@/lib/offer-security";
+import { offerReceiptText, queuedOfferAttachments } from "@/lib/offer-receipt";
+import { markOffersOpened } from "@/lib/offer-open";
+import { auditRequestContext } from "@/lib/audit-context";
 
 type Context = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, { params }: Context) {
+export async function GET(request: Request, { params }: Context) {
   try {
     const session = await auth();
     const { id } = await params;
     const announcement = await prisma.announcement.findUnique({ where: { id } });
     if (!announcement || !ownsOrganization(session, announcement.organizationId)) {
       return NextResponse.json({ error: "Brak uprawnień" }, { status: 403 });
+    }
+    if (session!.user.role === "ORGANIZATION") {
+      await markOffersOpened(id, session!.user.id, auditRequestContext(request));
     }
     const offers = await prisma.offer.findMany({
       where: { announcementId: id },
@@ -87,6 +93,7 @@ export async function POST(request: Request, { params }: Context) {
           bidderNip: bidderNip || null,
           announcementId: id,
           userId: contractorUserId,
+          submissionMethod: "PLATFORM",
           attachments: uploads.length
             ? {
                 create: uploads.map((file) => ({
@@ -99,13 +106,16 @@ export async function POST(request: Request, { params }: Context) {
               }
             : undefined,
         },
+        include: { attachments: true },
       });
       await tx.auditLog.create({
         data: {
           action: "SUBMIT",
           entity: "OFFER",
           entityId: created.id,
-          details: JSON.stringify({ announcementId: id }),
+          details: JSON.stringify({ announcementId: id, submissionMethod: "PLATFORM" }),
+          ipAddress: requestIp(request),
+          userAgent: request.headers.get("user-agent"),
           userId: contractorUserId,
         },
       });
@@ -126,21 +136,13 @@ export async function POST(request: Request, { params }: Context) {
         announcement.organization.email,
         ...announcement.organization.users.map((user) => user.email),
       ]);
+      const mailAttachments = serializeMailAttachments(queuedOfferAttachments(created.attachments));
       await tx.emailOutbox.createMany({
         data: [...recipients].map((to) => ({
           to,
           subject: `Nowa oferta do ogłoszenia ${announcement.procedureNumber}`,
-          text: [
-            `Do ogłoszenia „${announcement.title}" (${announcement.procedureNumber}) złożono nową ofertę przez serwis.`,
-            "",
-            `Wykonawca: ${data.bidderName}`,
-            `Cena brutto: ${data.price} PLN`,
-            uploads.length ? `Załączniki: ${uploads.length}` : "",
-            "",
-            `Przejrzyj oferty w panelu: ${panelLink}`,
-          ]
-            .filter(Boolean)
-            .join("\n"),
+          text: offerReceiptText(announcement, created, created.attachments, "ORGANIZATION", panelLink),
+          attachments: mailAttachments,
         })),
       });
       const publicLink = appUrl(`/ogloszenia/${id}`);
@@ -148,23 +150,12 @@ export async function POST(request: Request, { params }: Context) {
         data: {
           to: data.bidderEmail,
           subject: `Potwierdzenie złożenia oferty — ${announcement.procedureNumber}`,
-          text: [
-            `Dziękujemy. Twoja oferta do ogłoszenia „${announcement.title}" (${announcement.procedureNumber}) została przyjęta.`,
-            "",
-            `Numer potwierdzenia: ${created.id}`,
-            `Wykonawca: ${data.bidderName}`,
-            `Cena brutto: ${data.price} PLN`,
-            uploads.length ? `Załączniki: ${uploads.length}` : "",
-            "",
-            `Ogłoszenie: ${publicLink}`,
-            "",
-            "Zapisz numer potwierdzenia. Dane oferty są widoczne wyłącznie dla zamawiającego.",
+          text: `${offerReceiptText(announcement, created, created.attachments, "BIDDER", publicLink)}\n\n${
             contractorUserId
               ? "Oferta jest dostępna w historii na Twoim koncie wykonawcy."
-              : "Oferty anonimowej nie można później przypisać do konta wyłącznie na podstawie adresu e-mail.",
-          ]
-            .filter(Boolean)
-            .join("\n"),
+              : "Oferty anonimowej nie można później przypisać do konta wyłącznie na podstawie adresu e-mail."
+          }`,
+          attachments: mailAttachments,
         },
       });
       return { ok: true as const, offer: created };

@@ -12,6 +12,7 @@ import {
 } from "@/lib/totp";
 import { checkRateLimit } from "@/lib/rate-limit";
 import bcrypt from "bcryptjs";
+import { auditRequestFields } from "@/lib/audit-context";
 
 const enableSchema = z.object({
   code: z.string().regex(totpCodeSchema.regex, totpCodeSchema.message),
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
           action: "TOTP_ENABLE",
           entity: "USER",
           entityId: user.id,
+          ...auditRequestFields(request),
         },
       });
     });

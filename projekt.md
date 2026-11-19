@@ -9,9 +9,9 @@ Każda modyfikacja kodu, konfiguracji, schematu bazy danych, testów lub dokumen
 - Data ostatniego audytu: 2026-11-18.
 - Aplikacja: Next.js 15, React 19, TypeScript, Prisma i PostgreSQL.
 - Zakres funkcjonalny: publiczne ogłoszenia, konta organizacji i wykonawców, oferty, pytania i odpowiedzi, rozstrzygnięcia, panel administratora, aktualności, audyt, powiadomienia, 2FA, pliki i kolejka e-mail.
-- `npm run check`: zakończone powodzeniem; lint i typecheck bez błędów, 31/31 testów jednostkowych zaliczonych. Ostrzeżenie dotyczące użycia `<img>` usunięto 2026-11-16.
+- `npm run check`: zakończone powodzeniem; lint i typecheck bez błędów, 33/33 testy jednostkowe zaliczone. Ostrzeżenie dotyczące użycia `<img>` usunięto 2026-11-16.
 - `npm run build`: zakończone powodzeniem z celowo niedostępnym adresem PostgreSQL; build nie wykonuje zapytań do bazy, nie zawiera błędów Prisma/P1001 ani wcześniejszych ostrzeżeń `jose`/Auth.js w Edge Runtime.
-- Testy E2E uruchomiono 2026-11-18 na świeżej, izolowanej bazie PostgreSQL 16 `bk_test`: zastosowano 7/7 migracji i zaliczono 11/11 scenariuszy.
+- Testy E2E uruchomiono 2026-11-19 na świeżej, izolowanej bazie PostgreSQL 16 `bk_test`: zastosowano 8/8 migracji i zaliczono 11/11 scenariuszy.
 - `npm audit --omit=dev --audit-level=high`: 0 podatności w zależnościach produkcyjnych. Pełny audyt narzędzi developerskich wykazuje 18 zgłoszeń `HIGH` pochodzących z jednego advisory `picomatch`; brak podatności `CRITICAL` i brak dostępnej bezpiecznej wersji w aktualnym drzewie Tailwind/ESLint.
 - Gotowość produkcyjna: `NO GO` do czasu skonfigurowania produkcyjnego skanera antymalware oraz formalnego zatwierdzenia okresów retencji. Bramka migracji i pełnego E2E na PostgreSQL została zamknięta 2026-11-18.
 - Repozytorium Git zainicjalizowano 2026-11-16 na gałęzi `main`; zdalny `origin` wskazuje `https://github.com/artur-dot-max/baza-konkurencyjnosci.git`.
@@ -55,6 +55,21 @@ Każda modyfikacja kodu, konfiguracji, schematu bazy danych, testów lub dokumen
 7. Dodać repozytorium Git lub odzyskać katalog `.git`, aby zapewnić historię, przegląd zmian i możliwość bezpiecznego wycofania modyfikacji.
 
 ## Dziennik zmian
+
+### 2026-11-19 — potwierdzenia Ofert, ewidencja zewnętrzna, odczyt i pełniejszy audyt DIRS
+
+- Potwierdzenia złożenia Oferty: po przyjęciu Oferty przez System kolejka pocztowa tworzy osobne wiadomości dla Wykonawcy oraz Organizacji publikującej Ogłoszenie. Wiadomości zawierają pełną treść Oferty, datę i godzinę złożenia, sposób złożenia, listę plików oraz kopie wszystkich załączników.
+- Kolejka pocztowa: `EmailOutbox` przechowuje bezpieczne metadane załączników. Worker rozwiązuje wyłącznie pliki znajdujące się w `UPLOAD_DIR`, dołącza je przez Nodemailer i usuwa metadane po prawidłowej wysyłce. W `README.md` i `INSTRUKCJA_KOMPILACJI.md` opisano współdzielony katalog uploadów i wymagany limit SMTP.
+- Ewidencja Ofert spoza Systemu: Organizacja może ręcznie dodać Ofertę otrzymaną pocztą elektroniczną, papierowo lub przez e-Doręczenia, podając rzeczywistą datę i godzinę, dane Wykonawcy, cenę, treść, kanał, notatkę oraz załączniki. Endpoint sprawdza rolę `OWNER`/`EDITOR` lub administratora, stan postępowania, kanały dopuszczone w Ogłoszeniu, duplikaty i własność tokenów uploadu.
+- Informacja o odczycie: dla Ofert złożonych przez System pierwszy uprawniony odczyt przez Organizację jest zapisywany atomowo jako data, osoba i zdarzenie `OPEN`. Odczyt jest rejestrowany w widoku, API, eksporcie i przy pobraniu załącznika; widok Ofert pokazuje tę informację Organizacji.
+- Rejestr aktywności: dodano audyt logowania, wylogowania, odsłon stron, składania i ręcznego wpisywania Ofert, pierwszego otwarcia, pobrań załączników oraz operacji zmieniających konta, Organizacje, Ogłoszenia, pytania, odpowiedzi, rozstrzygnięcia, aktualności, zaproszenia i ustawienia bezpieczeństwa. Zapisy obejmują użytkownika, czas, adres IP, User-Agent, obiekt i szczegóły operacji.
+- Panel administratora: dziennik zdarzeń ma stronicowanie po 100 wpisów, łączną liczbę wyników, polskie i techniczne nazwy akcji oraz obiektów, dane użytkownika, adres IP, pełny User-Agent i rozwijane szczegóły JSON.
+- Prywatność i pomoc: Politykę prywatności uzupełniono o zakres telemetrii bezpieczeństwa i audytu, a FAQ o kompletne potwierdzenie Oferty wysyłane obu stronom. Usunięto nieaktualną sugestię przypisywania historii Ofert wyłącznie na podstawie adresu e-mail.
+- Schemat i migracja: zmieniono `prisma/schema.prisma`; dodano `prisma/migrations/202611190001_offer_receipts_manual_entry_audit/migration.sql`, enum `OfferSubmissionMethod`, pola kanału, operatora ręcznego wpisu, pierwszego odczytu i notatki oraz metadane załączników kolejki pocztowej.
+- Nowe moduły: `src/lib/audit-context.ts`, `src/lib/manual-offer.ts`, `src/lib/offer-open.ts`, `src/lib/offer-receipt.ts`, `src/components/activity-tracker.tsx`, `src/components/offers/manual-offer-form.tsx`, `src/app/api/activity/route.ts`, `src/app/api/announcements/[id]/offers/manual/route.ts` i `tests/unit/offer-workflow.test.ts`.
+- Pozostałe zmiany: zaktualizowano trasy API zapisujące audyt, `src/auth.ts`, nagłówek z akcją wylogowania, widok Ofert Organizacji, eksport, bezpieczne pobieranie plików, etykiety zdarzeń, test E2E, `README.md`, FAQ, Politykę prywatności i `tsconfig.json`.
+- Weryfikacja: `npx prisma generate` i `npx prisma validate` — sukces; `npm run check` — lint i typecheck bez błędów oraz 33/33 testy jednostkowe; produkcyjny build z celowo niedostępną bazą — sukces i 66 tras; `npm audit --omit=dev --audit-level=high` — 0 podatności; 8/8 migracji zastosowanych na świeżej bazie PostgreSQL 16; pełny `npm run test:e2e` — 11/11 scenariuszy.
+- Ograniczenie operacyjne: dostarczenie wiadomości z dużymi załącznikami zależy od limitu produkcyjnego serwera SMTP. Dla maksymalnych 50 MB plików infrastruktura powinna przyjmować wiadomości co najmniej 70 MB albo limit aplikacji musi zostać obniżony przed wdrożeniem.
 
 ### 2026-11-17–18 — przedprodukcyjny audyt bezpieczeństwa, integralności i gotowości operacyjnej
 

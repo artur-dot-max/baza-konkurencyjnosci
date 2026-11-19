@@ -182,6 +182,19 @@ test.describe.serial("Complete procurement workflow and security", () => {
     await expect(page.getByRole("status")).toContainText("Oferta została złożona");
     await expect(page.getByRole("status")).toContainText(/Numer potwierdzenia:/);
 
+    const bidderReceipt = await db.emailOutbox.findFirstOrThrow({
+      where: { to: "oferta@example.test", subject: { contains: "Potwierdzenie złożenia oferty" } },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(bidderReceipt.text).toContain("Data i godzina złożenia:");
+    expect(bidderReceipt.text).toContain("Dostawa zgodna ze specyfikacją w terminie 14 dni.");
+    expect(bidderReceipt.text).toContain("Cena brutto: 9876.54 PLN");
+    const organizationReceipt = await db.emailOutbox.findFirstOrThrow({
+      where: { to: "owner@example.test", subject: { contains: "Nowa oferta do ogłoszenia" } },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(organizationReceipt.text).toContain("Pełna treść oferty:");
+
     expect((await request.get(`/api/announcements/${announcementId}/offers`)).status()).toBe(403);
     expect((await other.get(`/api/announcements/${announcementId}/offers`)).status()).toBe(403);
     const offersResponse = await owner.get(`/api/announcements/${announcementId}/offers`);
@@ -189,6 +202,8 @@ test.describe.serial("Complete procurement workflow and security", () => {
     const offers = await offersResponse.json();
     expect(offers).toHaveLength(1);
     expect(offers[0]).toMatchObject({ bidderName: "Wykonawca testowy sp. z o.o.", bidderEmail: "oferta@example.test", bidderNip: "9876543210" });
+    expect(await db.offer.count({ where: { id: offers[0].id, openedAt: { not: null }, openedById: { not: null } } })).toBe(1);
+    expect(await db.auditLog.count({ where: { action: "OPEN", entity: "OFFER", entityId: offers[0].id } })).toBe(1);
 
     const duplicate = await request.post(`/api/announcements/${announcementId}/offers`, {
       data: {
@@ -204,14 +219,32 @@ test.describe.serial("Complete procurement workflow and security", () => {
     });
     expect(duplicate.status()).toBe(409);
 
+    const manual = await owner.post(`/api/announcements/${announcementId}/offers/manual`, {
+      data: {
+        bidderName: "Wykonawca e-mailowy sp. z o.o.",
+        bidderEmail: "manual@example.test",
+        bidderNip: "1111111111",
+        price: "7654.32",
+        description: "Oferta otrzymana na skrzynkę fundacji.",
+        submissionMethod: "EMAIL",
+        submittedAt: new Date(Date.now() - 60_000).toISOString(),
+        entryNote: "Wiadomość zarejestrowana przez właściciela Organizacji.",
+        attachmentIds: [],
+      },
+    });
+    expect(manual.status()).toBe(201);
+    expect(await db.offer.count({ where: { announcementId, submissionMethod: "EMAIL", enteredById: { not: null } } })).toBe(1);
+
     await page.context().addCookies((await owner.storageState()).cookies);
     await page.goto(`/panel/ogloszenia/${announcementId}/oferty`);
     await expect(page.getByText("Wykonawca testowy sp. z o.o.")).toBeVisible();
+    await expect(page.getByText("Wykonawca e-mailowy sp. z o.o.")).toBeVisible();
+    await expect(page.getByText("Mailowo", { exact: true })).toBeVisible();
     await expect(page.getByText("9876,54 zł")).toBeVisible();
     await expect(page.getByRole("link", { name: "Rozstrzygnij postępowanie" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Wybierz" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Wybierz" })).toHaveCount(2);
     await page.goto("/panel/ogloszenia");
-    await expect(page.getByRole("link", { name: /Oferty \(1\)/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Oferty \(2\)/ })).toBeVisible();
   });
 
   test("deadline, resolution, cancellation and duplicate submission", async ({ request, page }) => {
@@ -297,10 +330,10 @@ test.describe.serial("Complete procurement workflow and security", () => {
     await expect(page.locator("table").getByText("ANNOUNCEMENT", { exact: true })).toHaveCount(0);
     await page.goto("/admin/dziennik-zdarzen");
     await expect(page.getByRole("heading", { name: "Dziennik zdarzeń" })).toBeVisible();
-    await expect(page.locator("table").getByText("Utworzono", { exact: true }).first()).toBeVisible();
-    await expect(page.locator("table").getByText("Ogłoszenie", { exact: true }).first()).toBeVisible();
-    await expect(page.locator("table").getByText("CREATE", { exact: true })).toHaveCount(0);
-    await expect(page.locator("table").getByText("ANNOUNCEMENT", { exact: true })).toHaveCount(0);
+    await expect(page.locator("table").getByText(/^Utworzono/).first()).toBeVisible();
+    await expect(page.locator("table").getByText(/^Ogłoszenie/).first()).toBeVisible();
+    await expect(page.locator("table").getByText("CREATE", { exact: true }).first()).toBeVisible();
+    await expect(page.locator("table").getByText("ANNOUNCEMENT", { exact: true }).first()).toBeVisible();
     await page.goto("/admin/dziennik-bledow");
     await expect(page.getByRole("heading", { name: "Dziennik błędów" })).toBeVisible();
     await page.goto("/admin/wiadomosci");

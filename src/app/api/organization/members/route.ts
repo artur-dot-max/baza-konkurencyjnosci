@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { apiError } from "@/lib/api-error";
 import { canManageOrganizationTeam } from "@/lib/access";
+import { auditRequestFields } from "@/lib/audit-context";
 
 const updateSchema = z.object({
   userId: z.string().min(1),
@@ -59,6 +60,7 @@ export async function PATCH(request: Request) {
         userId: session.user.id,
         action: "UPDATE_MEMBER",
         entity: "USER",
+        ...auditRequestFields(request),
         entityId: member.id,
         details: JSON.stringify({ orgRole: changed.orgRole, isActive: changed.isActive }),
       } });

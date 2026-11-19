@@ -106,6 +106,10 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   DELETE: "Usunięto",
   PUBLISH: "Opublikowano",
   SUBMIT: "Złożono",
+  MANUAL_ENTRY: "Wprowadzono ręcznie",
+  OPEN: "Odczytano",
+  DOWNLOAD: "Pobrano",
+  PAGE_VIEW: "Wyświetlono stronę",
   RESOLVE: "Rozstrzygnięto",
   CANCEL: "Unieważniono",
   PASSWORD_RESET: "Zmieniono hasło",
@@ -126,6 +130,7 @@ export const AUDIT_ENTITY_LABELS: Record<string, string> = {
   ANSWER: "Odpowiedź",
   ATTACHMENT: "Załącznik",
   MESSAGE: "Wiadomość",
+  PAGE: "Strona",
 };
 
 export function auditActionLabel(action: string) {

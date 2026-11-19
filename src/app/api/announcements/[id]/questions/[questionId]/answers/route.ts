@@ -6,6 +6,7 @@ import { answerSchema } from "@/lib/validators";
 import { apiError } from "@/lib/api-error";
 import { appUrl } from "@/lib/mail";
 import { createNotificationsForUsers } from "@/lib/notifications";
+import { auditRequestFields } from "@/lib/audit-context";
 
 class AnswerClosedError extends Error {}
 
@@ -35,6 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         entity: "ANSWER",
         entityId: created.id,
         details: JSON.stringify({ announcementId: id, questionId }),
+        ...auditRequestFields(request),
       } });
       if (question.authorEmail) {
         const publicLink = appUrl(`/ogloszenia/${id}`);
