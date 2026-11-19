@@ -39,8 +39,8 @@ export async function POST(request: Request, { params }: Context) {
       if (!["PUBLISHED", "IN_PROGRESS"].includes(announcement.status)) {
         return { ok: false as const, status: 409, error: "Oferty można wprowadzać wyłącznie do trwającego postępowania" };
       }
-      if (!announcement.submissionMethods.includes(data.submissionMethod)) {
-        return { ok: false as const, status: 409, error: "Ten sposób składania nie został dopuszczony w ogłoszeniu" };
+      if (!announcement.publishedAt || announcement.publishedAt > new Date()) {
+        return { ok: false as const, status: 409, error: "Nie można wprowadzić oferty przed otwarciem ogłoszenia" };
       }
       if (bidderEmail) {
         const duplicate = await tx.offer.findFirst({

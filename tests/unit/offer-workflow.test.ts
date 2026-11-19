@@ -44,6 +44,7 @@ test("manual offer accepts external channels and rejects platform or future date
     attachmentIds: [],
   };
   assert.equal(manualOfferSchema.safeParse({ ...base, submissionMethod: "IN_PERSON" }).success, true);
+  assert.equal(manualOfferSchema.safeParse({ ...base, submissionMethod: "E_DELIVERY" }).success, true);
   assert.equal(manualOfferSchema.safeParse({ ...base, submissionMethod: "PLATFORM" }).success, false);
   assert.equal(manualOfferSchema.safeParse({ ...base, submissionMethod: "EMAIL", submittedAt: new Date(Date.now() + 60_000).toISOString() }).success, false);
 });

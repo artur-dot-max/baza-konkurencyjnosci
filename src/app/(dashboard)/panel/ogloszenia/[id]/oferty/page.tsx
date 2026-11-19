@@ -9,6 +9,7 @@ import { headers } from "next/headers";
 import { markOffersOpened } from "@/lib/offer-open";
 import { auditHeadersContext } from "@/lib/audit-context";
 import { ManualOfferForm } from "@/components/offers/manual-offer-form";
+import { EXTERNAL_OFFER_METHODS } from "@/lib/manual-offer";
 
 export default async function OffersPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -29,7 +30,8 @@ export default async function OffersPage({ params }: { params: Promise<{ id: str
 
   const canWrite = canWriteOrganization(session, announcement.organizationId);
   const canResolve = canWrite && ["PUBLISHED", "IN_PROGRESS"].includes(announcement.status);
-  const externalMethods = announcement.submissionMethods.filter((method) => method !== "PLATFORM");
+  const hasOpened = Boolean(announcement.publishedAt && announcement.publishedAt <= new Date());
+  const externalMethods = [...EXTERNAL_OFFER_METHODS];
 
   return (
     <div className="space-y-6">
@@ -66,7 +68,7 @@ export default async function OffersPage({ params }: { params: Promise<{ id: str
         </p>
       </div>
 
-      {canWrite && canResolve && externalMethods.length > 0 && (
+      {canWrite && canResolve && hasOpened && externalMethods.length > 0 && (
         <ManualOfferForm announcementId={id} methods={externalMethods} />
       )}
 

@@ -172,24 +172,26 @@ export default function NewAnnouncementPage() {
         return (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="publishedAt">Data publikacji</Label>
+              <Label htmlFor="publishedAt">Data i godzina otwarcia ogłoszenia</Label>
               <Input
                 id="publishedAt"
-                type="date"
+                type="datetime-local"
+                step="60"
                 value={formData.publishedAt}
                 onChange={(e) => updateFormData("publishedAt", e.target.value)}
               />
+              <p className="text-xs text-gray-600">Ogłoszenie stanie się publiczne automatycznie o wskazanej godzinie.</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="bidsDeadline">Termin składania ofert</Label>
+              <Label htmlFor="bidsDeadline">Data i godzina zamknięcia składania ofert</Label>
               <Input
                 id="bidsDeadline"
-                type="date"
-                min={formData.publishedAt ? new Date(new Date(formData.publishedAt).getTime() + 7 * 86400000).toISOString().slice(0, 10) : undefined}
+                type="datetime-local"
+                step="60"
                 value={formData.bidsDeadline}
                 onChange={(e) => updateFormData("bidsDeadline", e.target.value)}
               />
-              <p className="text-xs text-gray-600">Termin musi przypadać co najmniej 7 dni po dacie publikacji.</p>
+              <p className="text-xs text-gray-600">Przyjmowanie ofert zakończy się automatycznie o wskazanej godzinie. Termin musi przypadać co najmniej 7 pełnych dni po otwarciu.</p>
             </div>
           </div>
         );
@@ -269,8 +271,8 @@ export default function NewAnnouncementPage() {
               <div><span className="font-semibold">Numer:</span> {formData.procedureNumber}</div>
               <div><span className="font-semibold">Tytuł:</span> {formData.title}</div>
               <div><span className="font-semibold">Rodzaj:</span> {formData.orderType}</div>
-              <div><span className="font-semibold">Data publikacji:</span> {formData.publishedAt}</div>
-              <div><span className="font-semibold">Termin ofert:</span> {formData.bidsDeadline}</div>
+              <div><span className="font-semibold">Otwarcie ogłoszenia:</span> {formData.publishedAt.replace("T", " ")}</div>
+              <div><span className="font-semibold">Zamknięcie składania ofert:</span> {formData.bidsDeadline.replace("T", " ")}</div>
               <div><span className="font-semibold">Osoba kontaktowa:</span> {formData.contactPerson}</div>
               <div><span className="font-semibold">Email:</span> {formData.contactEmail}</div>
               <div><span className="font-semibold">Sposoby składania:</span> {formData.submissionMethods.map((method) => SUBMISSION_METHOD_LABELS[method]).join(", ") || "—"}</div>

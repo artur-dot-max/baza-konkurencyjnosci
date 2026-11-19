@@ -2,7 +2,8 @@ import { publicAnnouncementWhere } from "@/lib/access";
 import Link from "next/link";
 import { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
-import { formatDate, STATUS_COLORS, STATUS_LABELS, ORDER_TYPE_LABELS, VOIVODESHIPS } from "@/lib/utils";
+import { formatDateTime, STATUS_COLORS, STATUS_LABELS, ORDER_TYPE_LABELS, VOIVODESHIPS } from "@/lib/utils";
+import { announcementTimeState } from "@/lib/announcement-lifecycle";
 import { Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { AnnouncementStatus, OrderType, Prisma } from "@prisma/client";
 
@@ -223,8 +224,9 @@ export default async function AnnouncementsPage({
                     </tr>
                   ) : (
                     announcements.map((a: any) => {
-                      const statusColor = (STATUS_COLORS as Record<string, string>)[a.status] || "bg-gray-100 text-gray-800";
-                      const statusLabel = (STATUS_LABELS as Record<string, string>)[a.status] || a.status;
+                      const timeState = announcementTimeState(a);
+                      const statusColor = timeState === "OPEN" ? "bg-green-100 text-green-800" : timeState === "CLOSED" ? "bg-gray-100 text-gray-800" : (STATUS_COLORS as Record<string, string>)[a.status] || "bg-gray-100 text-gray-800";
+                      const statusLabel = timeState === "OPEN" ? "Otwarte" : timeState === "CLOSED" ? "Zamknięte" : (STATUS_LABELS as Record<string, string>)[a.status] || a.status;
 
                       return (
                         <tr key={a.id} className="hover:bg-gray-50 transition-colors">
@@ -239,8 +241,8 @@ export default async function AnnouncementsPage({
                             <div className="text-xs text-gray-600 mt-1">{a.voivodeship}</div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-xs text-gray-600">
-                            <div><span className="text-gray-700">Publikacja:</span> {a.publishedAt ? formatDate(a.publishedAt) : "-"}</div>
-                            <div className="mt-1 font-medium"><span className="text-gray-700 font-normal">Termin:</span> {a.bidsDeadline ? formatDate(a.bidsDeadline) : "-"}</div>
+                            <div><span className="text-gray-700">Otwarcie:</span> {a.publishedAt ? formatDateTime(a.publishedAt) : "-"}</div>
+                            <div className="mt-1 font-medium"><span className="text-gray-700 font-normal">Zamknięcie:</span> {a.bidsDeadline ? formatDateTime(a.bidsDeadline) : "-"}</div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${statusColor}`}>

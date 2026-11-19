@@ -6,7 +6,8 @@ import Link from "next/link";
 import { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { sanitizeRichText } from "@/lib/sanitize";
-import { formatDate, STATUS_COLORS, STATUS_LABELS, ORDER_TYPE_LABELS, HISTORY_ACTION_LABELS, SUBMISSION_METHOD_LABELS } from "@/lib/utils";
+import { formatDate, formatDateTime, STATUS_COLORS, STATUS_LABELS, ORDER_TYPE_LABELS, HISTORY_ACTION_LABELS, SUBMISSION_METHOD_LABELS } from "@/lib/utils";
+import { announcementTimeState, isAnnouncementOpen } from "@/lib/announcement-lifecycle";
 import { ChevronRight, Download, File, Building2, User, Phone, Mail, Clock, ShieldCheck, HelpCircle, Printer } from "lucide-react";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -47,8 +48,17 @@ export default async function AnnouncementDetailPage({ params }: { params: Promi
     notFound();
   }
 
-  const statusColor = (STATUS_COLORS as Record<string, string>)[announcement.status] || "bg-gray-100 text-gray-800";
-  const statusLabel = (STATUS_LABELS as Record<string, string>)[announcement.status] || announcement.status;
+  const timeState = announcementTimeState(announcement);
+  const statusColor = timeState === "CLOSED"
+    ? "bg-gray-100 text-gray-800"
+    : timeState === "OPEN"
+      ? "bg-green-100 text-green-800"
+      : (STATUS_COLORS as Record<string, string>)[announcement.status] || "bg-gray-100 text-gray-800";
+  const statusLabel = timeState === "CLOSED"
+    ? "Zamknięte"
+    : timeState === "OPEN"
+      ? "Otwarte"
+      : (STATUS_LABELS as Record<string, string>)[announcement.status] || announcement.status;
   const orderTypeLabel = (ORDER_TYPE_LABELS as Record<string, string>)[announcement.orderType] || announcement.orderType;
 
   return (
@@ -103,8 +113,8 @@ export default async function AnnouncementDetailPage({ params }: { params: Promi
               <p className="font-medium text-gray-900">{announcement.location || "-"} / {announcement.voivodeship || "-"}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500 mb-1">Data publikacji</p>
-              <p className="font-medium text-gray-900">{announcement.publishedAt ? formatDate(announcement.publishedAt) : "-"}</p>
+              <p className="text-sm text-gray-500 mb-1">Data i godzina otwarcia</p>
+              <p className="font-medium text-gray-900">{announcement.publishedAt ? formatDateTime(announcement.publishedAt) : "-"}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500 mb-1">Termin realizacji</p>
@@ -120,7 +130,7 @@ export default async function AnnouncementDetailPage({ params }: { params: Promi
             <div>
               <h2 className="text-lg font-bold text-[#145447] mb-2">Termin składania ofert</h2>
               <p className="text-2xl font-black text-gray-900">
-                {announcement.bidsDeadline ? formatDate(announcement.bidsDeadline) : "Nie określono"}
+                {announcement.bidsDeadline ? formatDateTime(announcement.bidsDeadline) : "Nie określono"}
               </p>
             </div>
           </div>
@@ -187,7 +197,7 @@ export default async function AnnouncementDetailPage({ params }: { params: Promi
           </div>
         </section>
 
-        {announcement.submissionMethods.includes("PLATFORM") && ["PUBLISHED", "IN_PROGRESS"].includes(announcement.status) && announcement.bidsDeadline && announcement.bidsDeadline > new Date() && <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        {announcement.submissionMethods.includes("PLATFORM") && isAnnouncementOpen(announcement) && <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <h2 className="bg-[#F0F7F4] px-6 py-4 border-b text-lg font-bold text-[#145447]">Złóż ofertę przez serwis</h2>
           <div className="p-6"><OfferForm announcementId={announcement.id} /></div>
         </section>}
@@ -310,7 +320,7 @@ export default async function AnnouncementDetailPage({ params }: { params: Promi
 
             <div className="mt-8 border-t pt-6">
               <h3 className="font-bold text-gray-900 mb-4">Zadaj pytanie</h3>
-              {["PUBLISHED", "IN_PROGRESS"].includes(announcement.status) && announcement.bidsDeadline && announcement.bidsDeadline > new Date()
+              {isAnnouncementOpen(announcement)
                 ? <QuestionForm announcementId={announcement.id} /> : <p>Przyjmowanie pytań zakończone.</p>}
             </div>
           </div>

@@ -33,7 +33,8 @@ test("publication rejects invalid dates, expired deadlines and criteria totals",
   const exactDeadline = new Date(latePublication); exactDeadline.setDate(exactDeadline.getDate() + 7); exactDeadline.setHours(0, 0, 0, 0);
   const data = { procedureNumber: "1", title: "Dostawa komputerów", description: "Opis zamówienia ".repeat(10), orderType: "SUPPLIES", voivodeship: "mazowieckie", location: "Warszawa", executionTerm: "30 dni", criteria: [{ name: "Cena", weight: 100 }], status: "PUBLISHED", publishedAt: new Date().toISOString(), bidsDeadline: new Date(Date.now() + 8 * 86400000).toISOString(), submissionMethods: ["PLATFORM"] };
   assert.equal(announcementSchema.safeParse(data).success, true);
-  assert.equal(announcementSchema.safeParse({ ...data, publishedAt: latePublication.toISOString(), bidsDeadline: exactDeadline.toISOString() }).success, true);
+  assert.equal(announcementSchema.safeParse({ ...data, publishedAt: latePublication.toISOString(), bidsDeadline: exactDeadline.toISOString() }).success, false);
+  assert.equal(announcementSchema.safeParse({ ...data, publishedAt: latePublication.toISOString(), bidsDeadline: new Date(latePublication.getTime() + 7 * 86400000).toISOString() }).success, true);
   assert.equal(announcementSchema.safeParse({ ...data, bidsDeadline: new Date(Date.now() + 6 * 86400000).toISOString() }).success, false);
   assert.equal(announcementSchema.safeParse({ ...data, submissionMethods: [] }).success, false);
   assert.equal(announcementSchema.safeParse({ ...data, submissionMethods: ["E_DELIVERY"], eDeliveryAddress: "" }).success, false);

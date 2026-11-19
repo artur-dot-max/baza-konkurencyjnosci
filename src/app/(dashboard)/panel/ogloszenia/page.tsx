@@ -2,7 +2,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { formatDate, STATUS_LABELS, STATUS_COLORS } from "@/lib/utils";
+import { formatDateTime, STATUS_LABELS, STATUS_COLORS } from "@/lib/utils";
+import { announcementTimeState } from "@/lib/announcement-lifecycle";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -127,14 +128,17 @@ export default async function MyAnnouncementsPage({
                   <th className="px-4 py-3">Numer</th>
                   <th className="px-4 py-3">Tytuł</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Data publikacji</th>
-                  <th className="px-4 py-3">Termin ofert</th>
+                  <th className="px-4 py-3">Otwarcie</th>
+                  <th className="px-4 py-3">Zamknięcie ofert</th>
                   <th className="px-4 py-3 text-right">Akcje</th>
                 </tr>
               </thead>
               <tbody>
                 {announcements.map((ann) => {
                   const open = ["PUBLISHED", "IN_PROGRESS"].includes(ann.status);
+                  const timeState = announcementTimeState(ann);
+                  const displayLabel = timeState === "SCHEDULED" ? "Zaplanowane" : timeState === "OPEN" ? "Otwarte" : timeState === "CLOSED" ? "Zamknięte" : STATUS_LABELS[ann.status as keyof typeof STATUS_LABELS] || ann.status;
+                  const displayColor = timeState === "SCHEDULED" ? "bg-amber-100 text-amber-900" : timeState === "OPEN" ? "bg-green-100 text-green-800" : timeState === "CLOSED" ? "bg-gray-100 text-gray-800" : STATUS_COLORS[ann.status as keyof typeof STATUS_COLORS] || "bg-gray-100 text-gray-800";
                   const unanswered = ann.questions.length;
                   return (
                     <tr key={ann.id} className="border-b hover:bg-gray-50">
@@ -148,12 +152,12 @@ export default async function MyAnnouncementsPage({
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className={STATUS_COLORS[ann.status as keyof typeof STATUS_COLORS] || "bg-gray-100 text-gray-800"}>
-                          {STATUS_LABELS[ann.status as keyof typeof STATUS_LABELS] || ann.status}
+                        <Badge className={displayColor}>
+                          {displayLabel}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3">{ann.publishedAt ? formatDate(ann.publishedAt) : "-"}</td>
-                      <td className="px-4 py-3">{ann.bidsDeadline ? formatDate(ann.bidsDeadline) : "-"}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{ann.publishedAt ? formatDateTime(ann.publishedAt) : "-"}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{ann.bidsDeadline ? formatDateTime(ann.bidsDeadline) : "-"}</td>
                       <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
                         <Button asChild variant="outline" size="sm">
                           <Link href={`/ogloszenia/${ann.id}`}>Podgląd</Link>

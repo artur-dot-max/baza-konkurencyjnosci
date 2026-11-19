@@ -89,7 +89,7 @@ test.describe.serial("Complete procurement workflow and security", () => {
   test("draft confidentiality, protected attachment, atomic publication and editing", async ({ request, page }) => {
     const tooShort = await owner.post("/api/announcements", { data: { ...announcement("TEST/SHORT"), status: "PUBLISHED", bidsDeadline: new Date(Date.now() + 6 * 86400000).toISOString() } });
     expect(tooShort.status()).toBe(400);
-    expect(await tooShort.text()).toContain("co najmniej 7 dni");
+    expect(await tooShort.text()).toContain("co najmniej 7 pełnych dni");
     const missingEDelivery = await owner.post("/api/announcements", { data: { ...announcement("TEST/EDELIVERY"), status: "PUBLISHED", submissionMethods: ["EMAIL", "E_DELIVERY"], eDeliveryAddress: "" } });
     expect(missingEDelivery.status()).toBe(400);
     expect(await missingEDelivery.text()).toContain("adres e-Doręczeń");
@@ -235,16 +235,37 @@ test.describe.serial("Complete procurement workflow and security", () => {
     expect(manual.status()).toBe(201);
     expect(await db.offer.count({ where: { announcementId, submissionMethod: "EMAIL", enteredById: { not: null } } })).toBe(1);
 
+    const eDelivery = await owner.post(`/api/announcements/${announcementId}/offers/manual`, {
+      data: {
+        bidderName: "Wykonawca przez e-Doręczenia sp. z o.o.",
+        bidderEmail: "e-doreczenia@example.test",
+        bidderNip: "2222222222",
+        price: "6543.21",
+        description: "Oferta odebrana przez publiczną usługę rejestrowanego doręczenia elektronicznego.",
+        submissionMethod: "E_DELIVERY",
+        submittedAt: new Date(Date.now() - 30_000).toISOString(),
+        entryNote: "Wprowadzono na podstawie potwierdzenia e-Doręczenia.",
+        attachmentIds: [],
+      },
+    });
+    expect(eDelivery.status()).toBe(201);
+    expect(await db.offer.count({ where: { announcementId, submissionMethod: "E_DELIVERY", enteredById: { not: null } } })).toBe(1);
+
     await page.context().addCookies((await owner.storageState()).cookies);
     await page.goto(`/panel/ogloszenia/${announcementId}/oferty`);
+    await page.getByRole("button", { name: "Dodaj ofertę złożoną poza systemem" }).click();
+    await expect(page.locator('#manual-method option[value="E_DELIVERY"]')).toHaveText("Przez e-Doręczenia");
+    await page.getByRole("button", { name: "Anuluj" }).click();
     await expect(page.getByText("Wykonawca testowy sp. z o.o.")).toBeVisible();
     await expect(page.getByText("Wykonawca e-mailowy sp. z o.o.")).toBeVisible();
+    await expect(page.getByText("Wykonawca przez e-Doręczenia sp. z o.o.")).toBeVisible();
     await expect(page.getByText("Mailowo", { exact: true })).toBeVisible();
+    await expect(page.getByText("Przez e-Doręczenia", { exact: true })).toBeVisible();
     await expect(page.getByText("9876,54 zł")).toBeVisible();
     await expect(page.getByRole("link", { name: "Rozstrzygnij postępowanie" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Wybierz" })).toHaveCount(2);
+    await expect(page.getByRole("link", { name: "Wybierz" })).toHaveCount(3);
     await page.goto("/panel/ogloszenia");
-    await expect(page.getByRole("link", { name: /Oferty \(2\)/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Oferty \(3\)/ })).toBeVisible();
   });
 
   test("deadline, resolution, cancellation and duplicate submission", async ({ request, page }) => {
@@ -252,6 +273,9 @@ test.describe.serial("Complete procurement workflow and security", () => {
     expect((await owner.post(`/api/announcements/${announcementId}/resolve`, { data: result })).status()).toBe(409);
     await db.announcement.update({ where: { id: announcementId }, data: { bidsDeadline: new Date(Date.now() - 1000) } });
     expect((await request.post(`/api/announcements/${announcementId}/questions`, { data: { authorEmail: "test@example.test", content: "Pytanie po terminie składania ofert" } })).status()).toBe(409);
+    expect((await request.post(`/api/announcements/${announcementId}/offers`, { data: { bidderName: "Spóźniony wykonawca", bidderEmail: "late@example.test", price: "1.00", confirmation: true, website: "", attachmentIds: [] } })).status()).toBe(409);
+    await page.goto(`/ogloszenia/${announcementId}`);
+    await expect(page.getByText("Zamknięte", { exact: true })).toBeVisible();
     expect((await owner.post(`/api/announcements/${announcementId}/resolve`, { data: { ...result, price: "0" } })).status()).toBe(400);
     const results = await Promise.all([owner.post(`/api/announcements/${announcementId}/resolve`, { data: result }), owner.post(`/api/announcements/${announcementId}/resolve`, { data: result })]);
     expect(results.map(r => r.status()).sort()).toEqual([200, 409]);

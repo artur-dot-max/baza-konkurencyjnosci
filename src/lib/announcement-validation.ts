@@ -2,10 +2,6 @@ import { z } from "zod";
 import { SUBMISSION_METHODS } from "@/lib/utils";
 export const MIN_BID_DAYS = 7;
 const eDeliveryPattern = /^AE:PL-\d{5}-\d{5}-[A-Z]{5}-\d{2}$/i;
-function calendarDay(value: string) {
-  const date = new Date(value);
-  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
-}
 export const criterionSchema = z.object({ name: z.string().trim().min(1).max(200), weight: z.coerce.number().positive().max(100) });
 export const criteriaSchema = z.array(criterionSchema).min(1).max(30).refine(items => Math.abs(items.reduce((n, c) => n + c.weight, 0) - 100) < 0.01, "Suma wag musi wynosić 100%");
 export const announcementSchema = z.object({
@@ -26,7 +22,7 @@ export const announcementSchema = z.object({
     if (data.title.length < 10) fail("title", "Tytuł musi mieć co najmniej 10 znaków");
     if (data.description.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim().length < 50) fail("description", "Opis musi mieć co najmniej 50 znaków");
     if (!data.publishedAt || !data.bidsDeadline) fail("bidsDeadline", "Daty są wymagane");
-    if (calendarDay(data.bidsDeadline) < calendarDay(data.publishedAt) + MIN_BID_DAYS * 86400000) fail("bidsDeadline", "Termin składania ofert musi przypadać co najmniej 7 dni po dacie publikacji");
+    if (Date.parse(data.bidsDeadline) < Date.parse(data.publishedAt) + MIN_BID_DAYS * 86400000) fail("bidsDeadline", "Termin składania ofert musi przypadać co najmniej 7 pełnych dni po otwarciu ogłoszenia");
     if (Date.parse(data.bidsDeadline) <= Date.now()) fail("bidsDeadline", "Termin składania ofert musi przypadać w przyszłości");
     if (!data.submissionMethods.length) fail("submissionMethods", "Wybierz co najmniej jeden sposób składania ofert");
     if (data.submissionMethods.includes("E_DELIVERY") && !eDeliveryPattern.test(data.eDeliveryAddress)) fail("eDeliveryAddress", "Podaj adres e-Doręczeń w formacie AE:PL-12345-67890-ABCDE-12");

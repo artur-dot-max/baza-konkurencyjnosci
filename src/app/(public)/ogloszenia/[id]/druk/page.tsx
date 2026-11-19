@@ -97,8 +97,8 @@ export default async function PrintAnnouncementPage({ params }: { params: Promis
             {field("Rodzaj zamówienia", ORDER_TYPE_LABELS[announcement.orderType] || announcement.orderType)}
             {field("Zamawiający", announcement.organization.name)}
             {field("Miejsce realizacji", [announcement.location, announcement.voivodeship].filter(Boolean).join(", "))}
-            {field("Data publikacji", announcement.publishedAt && formatDateTime(announcement.publishedAt))}
-            {field("Termin składania ofert", announcement.bidsDeadline && formatDateTime(announcement.bidsDeadline))}
+            {field("Data i godzina otwarcia", announcement.publishedAt && formatDateTime(announcement.publishedAt))}
+            {field("Data i godzina zamknięcia składania ofert", announcement.bidsDeadline && formatDateTime(announcement.bidsDeadline))}
             {field("Termin realizacji", announcement.executionTerm)}
           </dl>
         </section>

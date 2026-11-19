@@ -41,6 +41,7 @@ export default function EditAnnouncementPage({
           criteria: data.criteria || [],
           status: data.status,
           contactPerson: data.contactPerson || "",
+          publishedAt: data.publishedAt ? new Date(new Date(data.publishedAt).getTime() - new Date(data.publishedAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "",
           bidsDeadline: data.bidsDeadline ? new Date(new Date(data.bidsDeadline).getTime() - new Date(data.bidsDeadline).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "",
           executionTerm: data.executionTerm || "",
           location: data.location || "",
@@ -77,6 +78,11 @@ export default function EditAnnouncementPage({
     try {
       const payload = { ...formData, ...(publish ? { status: "PUBLISHED" } : {}) };
       if (!publish) delete payload.status;
+      if (formData.status === "DRAFT") {
+        payload.publishedAt = payload.publishedAt ? new Date(payload.publishedAt).toISOString() : null;
+      } else {
+        delete payload.publishedAt;
+      }
       if (payload.bidsDeadline) {
         payload.bidsDeadline = new Date(payload.bidsDeadline).toISOString();
       } else {
@@ -199,12 +205,17 @@ export default function EditAnnouncementPage({
             <TabsContent value="terminy" className="mt-0 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-field-6">Termin składania ofert</Label>
-                  <Input id="edit-field-6" type="datetime-local" value={formData.bidsDeadline} onChange={e => handleInputChange("bidsDeadline", e.target.value)} />
+                  <Label htmlFor="edit-published-at">Data i godzina otwarcia ogłoszenia</Label>
+                  <Input id="edit-published-at" type="datetime-local" step="60" value={formData.publishedAt} onChange={e => handleInputChange("publishedAt", e.target.value)} disabled={formData.status !== "DRAFT"} />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="edit-bids-deadline">Data i godzina zamknięcia składania ofert</Label>
+                  <Input id="edit-bids-deadline" type="datetime-local" step="60" value={formData.bidsDeadline} onChange={e => handleInputChange("bidsDeadline", e.target.value)} />
+                </div>
+                <p className="text-xs text-gray-600 md:col-span-2">Ogłoszenie otworzy się i zamknie automatycznie o wskazanych godzinach. Pomiędzy terminami musi upłynąć co najmniej 7 pełnych dni.</p>
+                <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="edit-field-7">Termin realizacji zamówienia</Label>
-                  <Input id="edit-field-7" value={formData.executionTerm} onChange={e => handleInputChange("executionTerm", e.target.value)} placeholder="np. do 31.12.2023 r." />
+                  <Input id="edit-field-7" value={formData.executionTerm} onChange={e => handleInputChange("executionTerm", e.target.value)} placeholder="np. do 31.12.2027 r." />
                 </div>
                 <fieldset className="space-y-3 md:col-span-2">
                   <legend className="text-sm font-medium">Sposób składania ofert</legend>

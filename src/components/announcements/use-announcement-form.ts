@@ -152,10 +152,16 @@ export function useAnnouncementForm() {
     setIsSubmitting(true);
     setError(null);
     try {
+      const payload = {
+        ...formData,
+        publishedAt: formData.publishedAt ? new Date(formData.publishedAt).toISOString() : "",
+        bidsDeadline: formData.bidsDeadline ? new Date(formData.bidsDeadline).toISOString() : "",
+        status,
+      };
       const response = await fetch("/api/announcements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, status }),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {

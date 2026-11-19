@@ -9,7 +9,7 @@ Każda modyfikacja kodu, konfiguracji, schematu bazy danych, testów lub dokumen
 - Data ostatniego audytu: 2026-11-18.
 - Aplikacja: Next.js 15, React 19, TypeScript, Prisma i PostgreSQL.
 - Zakres funkcjonalny: publiczne ogłoszenia, konta organizacji i wykonawców, oferty, pytania i odpowiedzi, rozstrzygnięcia, panel administratora, aktualności, audyt, powiadomienia, 2FA, pliki i kolejka e-mail.
-- `npm run check`: zakończone powodzeniem; lint i typecheck bez błędów, 33/33 testy jednostkowe zaliczone. Ostrzeżenie dotyczące użycia `<img>` usunięto 2026-11-16.
+- `npm run check`: zakończone powodzeniem; lint i typecheck bez błędów, 35/35 testów jednostkowych zaliczonych. Ostrzeżenie dotyczące użycia `<img>` usunięto 2026-11-16.
 - `npm run build`: zakończone powodzeniem z celowo niedostępnym adresem PostgreSQL; build nie wykonuje zapytań do bazy, nie zawiera błędów Prisma/P1001 ani wcześniejszych ostrzeżeń `jose`/Auth.js w Edge Runtime.
 - Testy E2E uruchomiono 2026-11-19 na świeżej, izolowanej bazie PostgreSQL 16 `bk_test`: zastosowano 8/8 migracji i zaliczono 11/11 scenariuszy.
 - `npm audit --omit=dev --audit-level=high`: 0 podatności w zależnościach produkcyjnych. Pełny audyt narzędzi developerskich wykazuje 18 zgłoszeń `HIGH` pochodzących z jednego advisory `picomatch`; brak podatności `CRITICAL` i brak dostępnej bezpiecznej wersji w aktualnym drzewie Tailwind/ESLint.
@@ -55,6 +55,19 @@ Każda modyfikacja kodu, konfiguracji, schematu bazy danych, testów lub dokumen
 7. Dodać repozytorium Git lub odzyskać katalog `.git`, aby zapewnić historię, przegląd zmian i możliwość bezpiecznego wycofania modyfikacji.
 
 ## Dziennik zmian
+
+### 2026-11-19 — e-Doręczenia oraz automatyczne otwieranie i zamykanie Ogłoszeń z dokładnością do minuty
+
+- Ewidencja Ofert zewnętrznych: po otwarciu Ogłoszenia formularz ręcznego wpisu zawsze udostępnia trzy faktyczne kanały otrzymania Oferty — e-mail, osobiście/papierowo oraz e-Doręczenia — niezależnie od sposobów pierwotnie wskazanych w Ogłoszeniu. Backend nadal wyklucza kanał platformowy z ręcznego wpisu, blokuje wpis przed otwarciem, ale pozwala po otwarciu rzetelnie zarejestrować Ofertę otrzymaną przez e-Doręczenia, również po terminie na potrzeby rozstrzygnięcia.
+- Formularz tworzenia Ogłoszenia: pola dat zostały zastąpione polami `datetime-local` „Data i godzina otwarcia ogłoszenia” oraz „Data i godzina zamknięcia składania ofert”. Wartości lokalne użytkownika są przed wysłaniem zamieniane na jednoznaczny czas ISO, co zapobiega przesunięciom strefy czasowej po stronie serwera.
+- Edycja Ogłoszenia: dodano oba terminy z godziną. Termin otwarcia można ustawić w szkicu i jest blokowany po publikacji, natomiast termin zamknięcia podlega istniejącej zasadzie, że po publikacji wolno go wyłącznie przedłużyć przed jego upływem.
+- Automatyczny cykl czasowy: dodano `src/lib/announcement-lifecycle.ts`, który wyznacza stany `SCHEDULED`, `OPEN` i `CLOSED` bez zależności od zadania harmonogramu. Ogłoszenie staje się publiczne dokładnie o `publishedAt`; formularze Oferty i pytania oraz ich endpointy przyjmują dane tylko od tej chwili do czasu `bidsDeadline`, przy czym chwila graniczna zamknięcia jest już niedostępna.
+- Status i prezentacja: publiczny szczegół, publiczna lista Ogłoszeń, strona główna, panel Organizacji, PDF i wydruk pokazują datę wraz z godziną. Aktywne Ogłoszenia mają etykietę „Otwarte”, przyszłe w panelu „Zaplanowane”, a po terminie „Zamknięte”. Licznik aktywnych Ogłoszeń na stronie głównej nie obejmuje postępowań po terminie.
+- Walidacja: minimalny termin składania Ofert wynosi teraz dokładnie 7 pełnych dób od godziny otwarcia, zamiast porównywania wyłącznie dni kalendarzowych. Przypomnienia terminowe zawierają również godzinę zamknięcia.
+- Zmienione moduły: formularz tworzenia i edycji Ogłoszenia, panel i listy Ogłoszeń, publiczny szczegół, PDF i wydruk, API tworzenia/edycji Ogłoszeń, endpointy Ofert i pytań, ręczna ewidencja Ofert, walidatory terminów, przypomnienia oraz test E2E.
+- Nowe pliki: `src/lib/announcement-lifecycle.ts` i `tests/unit/announcement-lifecycle.test.ts`.
+- Testy: dodano testy obu granic czasowych, szkicu i stanów zakończonych, obsługi `E_DELIVERY` w walidacji oraz scenariusz E2E rejestrujący Ofertę przez e-Doręczenia i odrzucający Ofertę po godzinie zamknięcia.
+- Weryfikacja: `npm run check` — lint i typecheck bez błędów oraz 35/35 testów jednostkowych; produkcyjny `npm run build` z celowo niedostępną bazą — sukces i 66 tras; 8/8 migracji na świeżej bazie PostgreSQL 16 — sukces; pełny `npm run test:e2e` — 11/11 scenariuszy.
 
 ### 2026-11-19 — potwierdzenia Ofert, ewidencja zewnętrzna, odczyt i pełniejszy audyt DIRS
 

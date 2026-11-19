@@ -3,7 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Search, FileText, Building2, CheckCircle, Calendar, ArrowRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { formatDate, STATUS_LABELS } from "@/lib/utils";
+import { formatDate, formatDateTime, STATUS_LABELS } from "@/lib/utils";
+import { announcementTimeState } from "@/lib/announcement-lifecycle";
 import { newsExcerpt, publicNewsWhere } from "@/lib/news";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export default async function HomePage() {
   const [activeAnnouncementsCount, orgCount, finishedCount, latestAnnouncements, latestNews] = await Promise.all([
     prisma.announcement.count({
       where: {
-        AND: [publicAnnouncementWhere(), { status: { in: ["PUBLISHED", "IN_PROGRESS"] } }],
+        AND: [publicAnnouncementWhere(), { status: { in: ["PUBLISHED", "IN_PROGRESS"] }, bidsDeadline: { gt: new Date() } }],
       },
     }).catch(() => 0),
     prisma.organization.count({ where: { status: "ACTIVE" } }).catch(() => 0),
@@ -131,7 +132,10 @@ export default async function HomePage() {
                 {latestAnnouncements.length === 0 ? (
                   <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">Brak najnowszych ogłoszeń</td></tr>
                 ) : (
-                  latestAnnouncements.map((a: any) => (
+                  latestAnnouncements.map((a: any) => {
+                    const timeState = announcementTimeState(a);
+                    const label = timeState === "OPEN" ? "Otwarte" : timeState === "CLOSED" ? "Zamknięte" : STATUS_LABELS[a.status] ?? a.status;
+                    return (
                     <tr key={a.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
                         <Link href={`/ogloszenia/${a.id}`} className="text-[#145447] font-semibold hover:underline block mb-1">
@@ -140,14 +144,15 @@ export default async function HomePage() {
                         <span className="text-xs text-gray-600">{a.procedureNumber}</span>
                       </td>
                       <td className="px-6 py-4 text-gray-700">{a.organization?.name}</td>
-                      <td className="px-6 py-4 text-gray-700">{a.bidsDeadline ? formatDate(a.bidsDeadline) : "-"}</td>
+                      <td className="px-6 py-4 text-gray-700 whitespace-nowrap">{a.bidsDeadline ? formatDateTime(a.bidsDeadline) : "-"}</td>
                       <td className="px-6 py-4">
                         <span className="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-[#DCEDE7] text-[#145447]">
-                          {STATUS_LABELS[a.status] ?? a.status}
+                          {label}
                         </span>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>

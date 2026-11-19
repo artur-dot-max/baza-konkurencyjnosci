@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { appUrl } from "@/lib/mail";
 import { notifyOrganizationUsers } from "@/lib/notifications";
-import { formatDate } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 
 /** Send deadline reminders (3 days / 1 day) as email + in-app notifications. Idempotent via DeadlineReminder. */
 export async function processDeadlineReminders() {
@@ -36,7 +36,7 @@ export async function processDeadlineReminders() {
       if (!item.match) continue;
       const panelLink = appUrl(`/panel/ogloszenia/${ann.id}`);
       const title = `Zbliża się termin ofert (${item.label})`;
-      const body = `Termin składania ofert dla „${ann.title}" (${ann.procedureNumber}) upływa ${formatDate(ann.bidsDeadline)}.`;
+      const body = `Termin składania ofert dla „${ann.title}" (${ann.procedureNumber}) upływa ${formatDateTime(ann.bidsDeadline)}.`;
 
       await prisma.$transaction(async (tx) => {
         const claimed = await tx.deadlineReminder.createMany({

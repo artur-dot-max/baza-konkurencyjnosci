@@ -134,14 +134,13 @@ export const announcementStep5Schema = z.object({
     if (data.publishedAt && data.bidsDeadline) {
       const publication = new Date(data.publishedAt);
       const deadline = new Date(data.bidsDeadline);
-      const publicationDay = Date.UTC(publication.getFullYear(), publication.getMonth(), publication.getDate());
-      const deadlineDay = Date.UTC(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
-      return deadlineDay >= publicationDay + 7 * 86400000;
+      return Number.isFinite(publication.getTime()) && Number.isFinite(deadline.getTime()) &&
+        deadline.getTime() >= publication.getTime() + 7 * 86400000;
     }
     return true;
   },
   {
-    message: "Termin składania ofert musi przypadać co najmniej 7 dni po dacie publikacji",
+    message: "Termin składania ofert musi przypadać co najmniej 7 pełnych dni po otwarciu ogłoszenia",
     path: ["bidsDeadline"],
   }
 );

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { FileText, CheckCircle, Send, MessageSquareWarning } from "lucide-react";
 import Link from "next/link";
 import { formatDate, STATUS_LABELS, STATUS_COLORS } from "@/lib/utils";
+import { announcementTimeState } from "@/lib/announcement-lifecycle";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -141,6 +142,9 @@ export default async function DashboardPage() {
               <tbody>
                 {recentAnnouncements.map((ann) => {
                   const open = ["PUBLISHED", "IN_PROGRESS"].includes(ann.status);
+                  const timeState = announcementTimeState(ann);
+                  const displayLabel = timeState === "SCHEDULED" ? "Zaplanowane" : timeState === "OPEN" ? "Otwarte" : timeState === "CLOSED" ? "Zamknięte" : STATUS_LABELS[ann.status as keyof typeof STATUS_LABELS] || ann.status;
+                  const displayColor = timeState === "SCHEDULED" ? "bg-amber-100 text-amber-900" : timeState === "OPEN" ? "bg-green-100 text-green-800" : timeState === "CLOSED" ? "bg-gray-100 text-gray-800" : STATUS_COLORS[ann.status as keyof typeof STATUS_COLORS] || "bg-gray-100 text-gray-800";
                   const unanswered = ann.questions.length;
                   return (
                     <tr key={ann.id} className="border-b hover:bg-gray-50">
@@ -154,8 +158,8 @@ export default async function DashboardPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className={STATUS_COLORS[ann.status as keyof typeof STATUS_COLORS] || "bg-gray-100 text-gray-800"}>
-                          {STATUS_LABELS[ann.status as keyof typeof STATUS_LABELS] || ann.status}
+                        <Badge className={displayColor}>
+                          {displayLabel}
                         </Badge>
                       </td>
                       <td className="px-4 py-3">{formatDate(ann.createdAt)}</td>

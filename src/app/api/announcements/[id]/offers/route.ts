@@ -12,6 +12,7 @@ import { offerUploadOwner } from "@/lib/offer-security";
 import { offerReceiptText, queuedOfferAttachments } from "@/lib/offer-receipt";
 import { markOffersOpened } from "@/lib/offer-open";
 import { auditRequestContext } from "@/lib/audit-context";
+import { isAnnouncementOpen } from "@/lib/announcement-lifecycle";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -83,8 +84,8 @@ export async function POST(request: Request, { params }: Context) {
       if (!announcement.submissionMethods.includes("PLATFORM")) {
         return { ok: false as const, status: 409, error: "To ogłoszenie nie przyjmuje ofert przez serwis" };
       }
-      if (!["PUBLISHED", "IN_PROGRESS"].includes(announcement.status) || !announcement.bidsDeadline || announcement.bidsDeadline <= new Date()) {
-        return { ok: false as const, status: 409, error: "Termin składania ofert upłynął" };
+      if (!isAnnouncementOpen(announcement)) {
+        return { ok: false as const, status: 409, error: "Postępowanie nie jest jeszcze otwarte albo termin składania ofert upłynął" };
       }
 
       const created = await tx.offer.create({

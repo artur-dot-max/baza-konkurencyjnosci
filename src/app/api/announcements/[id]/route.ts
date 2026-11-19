@@ -83,6 +83,7 @@ export async function PUT(
       orderType: z.enum(["SUPPLIES", "SERVICES", "CONSTRUCTION"]).optional(),
       description: z.string().min(1).optional(),
       conditions: z.string().nullable().optional(),
+      publishedAt: z.string().datetime().nullable().optional(),
       bidsDeadline: z.string().datetime().nullable().optional(),
       executionTerm: z.string().nullable().optional(),
       location: z.string().nullable().optional(),
@@ -104,6 +105,13 @@ export async function PUT(
     if (data.status === "DRAFT" && oldAnn.status !== "DRAFT") {
       return NextResponse.json({ error: "Nie można cofnąć publikacji" }, { status: 409 });
     }
+    if (
+      oldAnn.status !== "DRAFT" &&
+      data.publishedAt !== undefined &&
+      (!data.publishedAt || !oldAnn.publishedAt || new Date(data.publishedAt).getTime() !== oldAnn.publishedAt.getTime())
+    ) {
+      return NextResponse.json({ error: "Nie można zmienić terminu otwarcia po publikacji ogłoszenia" }, { status: 409 });
+    }
 
     const alreadyPublished = oldAnn.status === "PUBLISHED" || oldAnn.status === "IN_PROGRESS";
     if (alreadyPublished && data.bidsDeadline !== undefined) {
@@ -114,13 +122,16 @@ export async function PUT(
     }
 
     const publishing = oldAnn.status === "DRAFT" && data.status === "PUBLISHED";
+    const publicationDate = data.publishedAt
+      ? new Date(data.publishedAt)
+      : oldAnn.publishedAt ?? (publishing ? new Date() : null);
     if (oldAnn.status !== "DRAFT" || publishing) {
       const merged = {
         ...oldAnn,
         ...data,
         status: "PUBLISHED",
         criteria: data.criteria ?? oldAnn.criteria,
-        publishedAt: publishing ? new Date().toISOString() : oldAnn.publishedAt?.toISOString(),
+        publishedAt: publicationDate?.toISOString(),
         bidsDeadline: data.bidsDeadline === undefined ? oldAnn.bidsDeadline?.toISOString() : data.bidsDeadline,
       };
       for (const key of ["conditions", "contactPerson", "contactEmail", "contactPhone", "eDeliveryAddress"] as const) {
@@ -140,7 +151,10 @@ export async function PUT(
       const updated = await tx.announcement.update({
         where: { id, updatedAt: oldAnn.updatedAt },
         data: {
-          ...(publishing && { status: "PUBLISHED", publishedAt: new Date() }),
+          ...(publishing && { status: "PUBLISHED", publishedAt: publicationDate }),
+          ...(oldAnn.status === "DRAFT" && !publishing && data.publishedAt !== undefined && {
+            publishedAt: data.publishedAt ? new Date(data.publishedAt) : null,
+          }),
           ...(data.criteria && { criteria: { deleteMany: {}, create: data.criteria } }),
           ...(data.contactPerson !== undefined && { contactPerson: data.contactPerson }),
           ...(data.title !== undefined && { title: data.title }),

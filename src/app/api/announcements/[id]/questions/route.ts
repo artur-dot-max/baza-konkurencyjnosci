@@ -8,6 +8,7 @@ import { appUrl } from "@/lib/mail";
 import { notifyOrganizationUsers } from "@/lib/notifications";
 import { publicQuestionSchema, redactQuestionAuthor } from "@/lib/moderation";
 import { auditRequestFields } from "@/lib/audit-context";
+import { isAnnouncementOpen } from "@/lib/announcement-lifecycle";
 
 class QuestionClosedError extends Error {}
 
@@ -40,7 +41,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       },
     });
     if (!ann || !isPublicAnnouncement(ann)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (!["PUBLISHED", "IN_PROGRESS"].includes(ann.status) || !ann.bidsDeadline || ann.bidsDeadline <= new Date()) {
+    if (!isAnnouncementOpen(ann)) {
       return NextResponse.json({ error: "Termin zadawania pytań upłynął" }, { status: 409 });
     }
     const parsed = publicQuestionSchema.safeParse(await request.json());
@@ -52,9 +53,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (
         !current ||
         !isPublicAnnouncement(current) ||
-        !["PUBLISHED", "IN_PROGRESS"].includes(current.status) ||
-        !current.bidsDeadline ||
-        current.bidsDeadline <= new Date()
+        !isAnnouncementOpen(current)
       ) {
         throw new QuestionClosedError("Termin zadawania pytań upłynął");
       }
